@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +22,8 @@ type ServerConf struct {
 	UserFile        string            `json:"user_file"`
 }
 
+var serverConf string
+var serverConfDir string
 var httpServer = map[string]*http.Server{}
 var httpServerLck = sync.RWMutex{}
 
@@ -32,7 +35,13 @@ func startServer(c string) (err error) {
 		exitf(1)
 		return
 	}
-	auth := ds.NewJSONFileAuth(conf.Manager, conf.UserFile)
+	serverConf = c
+	serverConfDir = filepath.Dir(serverConf)
+	userFile := conf.UserFile
+	if !filepath.IsAbs(userFile) {
+		userFile, _ = filepath.Abs(filepath.Join(serverConfDir, userFile))
+	}
+	auth := ds.NewJSONFileAuth(conf.Manager, userFile)
 	server := ds.NewServer(ds.DefaultBufferSize, ds.NetDialer("tcp"))
 	mux := http.NewServeMux()
 	mux.Handle("/ds", websocket.Handler(func(ws *websocket.Conn) {
@@ -84,6 +93,13 @@ func startServer(c string) (err error) {
 			exitf(1)
 			return
 		}
+		certFile, certKey := conf.HTTPSCert, conf.HTTPSKey
+		if !filepath.IsAbs(certFile) {
+			certFile, _ = filepath.Abs(filepath.Join(serverConfDir, certFile))
+		}
+		if !filepath.IsAbs(certKey) {
+			certKey, _ = filepath.Abs(filepath.Join(serverConfDir, certKey))
+		}
 		wait.Add(len(addrs))
 		for _, a := range addrs {
 			go func(addr string) {
@@ -91,7 +107,7 @@ func startServer(c string) (err error) {
 				httpServerLck.Lock()
 				httpServer[fmt.Sprintf("%p", s)] = s
 				httpServerLck.Unlock()
-				rerr := s.ListenAndServeTLS(conf.HTTPSCert, conf.HTTPSKey)
+				rerr := s.ListenAndServeTLS(certFile, certKey)
 				if rerr != nil {
 					ds.ErrorLog("Server https server on %v is stopped fail with %v", addr, rerr)
 				}

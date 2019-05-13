@@ -16,8 +16,9 @@ import (
 	"github.com/darksocks/darksocks/ds"
 )
 
-var client *ds.Client
 var clientConf string
+var clientConfDir string
+var client *ds.Client
 var proxyServer *ds.SocksProxy
 var managerServer net.Listener
 
@@ -174,6 +175,7 @@ func startClient(c string) (err error) {
 		return
 	}
 	clientConf = c
+	clientConfDir = filepath.Dir(clientConf)
 	client = ds.NewClient(ds.DefaultBufferSize, conf)
 	proxyServer = ds.NewSocksProxy()
 	proxyServer.Dialer = func(target string, raw io.ReadWriteCloser) (sid uint64, err error) {
