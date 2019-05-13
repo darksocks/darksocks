@@ -1,3 +1,1 @@
-darksocks.exe filter=lfs diff=lfs merge=lfs -text
-sysproxy.exe filter=lfs diff=lfs merge=lfs -text
-sysproxy64.exe filter=lfs diff=lfs merge=lfs -text
+**/*.exe filter=lfs diff=lfs merge=lfs -text

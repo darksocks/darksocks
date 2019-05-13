@@ -1,0 +1,13 @@
+[Unit]
+Description=darksocks service
+After=network.target
+
+[Service]
+User=darksocks
+Restart=always
+WorkingDirectory=/home/darksocks
+ExecStart=/usr/local/bin/darksocks
+EnvironmentFile=/etc/darksocks/darksocks.env
+
+[Install]
+WantedBy=multi-user.target
