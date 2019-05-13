@@ -12,6 +12,7 @@ echo "Installing Dependence"
 #########Running Test#########
 echo "Running Test"
 pkgs="\
+ github.com/darksocks/darksocks/ds\
  github.com/darksocks/darksocks\
 "
 

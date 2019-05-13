@@ -66,7 +66,7 @@ func startServer(c string) (err error) {
 				httpServerLck.Unlock()
 				rerr := s.ListenAndServe()
 				if rerr != nil {
-					ds.ErrorLog("Server http server on %v is stopped fail with %v", addr, err)
+					ds.ErrorLog("Server http server on %v is stopped fail with %v", addr, rerr)
 				}
 				httpServerLck.Lock()
 				delete(httpServer, fmt.Sprintf("%p", s))
@@ -93,7 +93,7 @@ func startServer(c string) (err error) {
 				httpServerLck.Unlock()
 				rerr := s.ListenAndServeTLS(conf.HTTPSCert, conf.HTTPSKey)
 				if rerr != nil {
-					ds.ErrorLog("Server https server on %v is stopped fail with %v", addr, err)
+					ds.ErrorLog("Server https server on %v is stopped fail with %v", addr, rerr)
 				}
 				httpServerLck.Lock()
 				delete(httpServer, fmt.Sprintf("%p", s))
