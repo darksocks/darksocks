@@ -8,8 +8,6 @@ import (
 	"net"
 	"testing"
 	"time"
-
-	"github.com/sutils/bsck/dialer"
 )
 
 func proxyDial(t *testing.T, remote string, port uint16) {
@@ -195,39 +193,39 @@ func TestSocksProxy(t *testing.T) {
 	proxyDialIPv6(t, make([]byte, 16), 80)
 	{ //test error
 		//
-		conn, conb, _ := dialer.CreatePipedConn()
+		conn, conb, _ := CreatePipeConn()
 		go proxy.procConn(conb)
 		conn.Close()
 		//
-		conn, conb, _ = dialer.CreatePipedConn()
+		conn, conb, _ = CreatePipeConn()
 		go proxy.procConn(conb)
 		conn.Write([]byte{0x00, 0x00})
 		conn.Close()
 		//
-		conn, conb, _ = dialer.CreatePipedConn()
+		conn, conb, _ = CreatePipeConn()
 		go proxy.procConn(conb)
 		conn.Write([]byte{0x05, 0x01})
 		conn.Close()
 		//
-		conn, conb, _ = dialer.CreatePipedConn()
+		conn, conb, _ = CreatePipeConn()
 		go proxy.procConn(conb)
 		conn.Write([]byte{0x05, 0x01, 0x00})
 		conn.Close()
 		//
-		conn, conb, _ = dialer.CreatePipedConn()
+		conn, conb, _ = CreatePipeConn()
 		go proxy.procConn(conb)
 		conn.Write([]byte{0x05, 0x01, 0x00})
 		conn.Read(make([]byte, 1024))
 		conn.Close()
 		//
-		conn, conb, _ = dialer.CreatePipedConn()
+		conn, conb, _ = CreatePipeConn()
 		go proxy.procConn(conb)
 		conn.Write([]byte{0x05, 0x01, 0x00})
 		conn.Read(make([]byte, 1024))
 		conn.Write([]byte{0x00, 0x01, 0x00, 0x00, 0x00})
 		conn.Close()
 		//
-		conn, conb, _ = dialer.CreatePipedConn()
+		conn, conb, _ = CreatePipeConn()
 		go proxy.procConn(conb)
 		conn.Write([]byte{0x05, 0x01, 0x00})
 		conn.Read(make([]byte, 1024))
