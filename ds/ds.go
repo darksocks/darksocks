@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"net/http"
 	"sync"
@@ -69,10 +70,10 @@ func (c *Conn) ReadCmd() (cmd []byte, err error) {
 				continue
 			}
 		}
+		c.buf[c.offset] = 0
 		frameLength := binary.BigEndian.Uint32(c.buf[c.offset:])
 		if frameLength > uint32(len(c.buf)) {
 			err = fmt.Errorf("frame too large")
-			fmt.Println("--->", frameLength)
 			break
 		}
 		if c.length < frameLength {
@@ -98,6 +99,7 @@ func (c *Conn) ReadCmd() (cmd []byte, err error) {
 //WriteCmd will write data by command mode
 func (c *Conn) WriteCmd(cmd []byte) (w int, err error) {
 	binary.BigEndian.PutUint32(cmd, uint32(len(cmd)))
+	cmd[0] = byte(rand.Intn(255))
 	w, err = c.raw.Write(cmd)
 	return
 }

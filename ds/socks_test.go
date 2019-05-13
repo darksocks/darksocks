@@ -181,11 +181,12 @@ func TestSocksProxy(t *testing.T) {
 		return
 	}
 	go func() {
-		err := proxy.Run(":2081")
+		err := proxy.Listen(":2081")
 		if err != nil {
 			t.Error(err)
 			return
 		}
+		proxy.Run()
 	}()
 	proxyDial(t, "localhost", 80)
 	proxyDial2(t, "localhost:80", 0)
