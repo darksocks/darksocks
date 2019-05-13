@@ -1,12 +1,4 @@
 {
-    "http_listen_addr": ":5100-5110",
-    "https_listen_addr": ":5200-5210",
-    "https_cert": "dscert.crt",
-    "https_key": "dscert.key",
-    "manager": {
-        "test": "40bd001563085fc35165329ea1ff5c5ecbdbbeef"
-    },
-    "user_file": "dsuser.json",
     "servers": [
         {
             "enable": true,
@@ -20,5 +12,5 @@
     ],
     "share_addr": "0.0.0.0:1089",
     "manager_addr": "0.0.0.0:1180",
-    "mode":"auto"
+    "mode": "auto"
 }

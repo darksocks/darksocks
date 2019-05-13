@@ -71,11 +71,18 @@ func NewSocksProxy() (socks *SocksProxy) {
 	return
 }
 
-//Run proxy listener
-func (s *SocksProxy) Run(addr string) (err error) {
+//Listen the address
+func (s *SocksProxy) Listen(addr string) (err error) {
 	s.Listener, err = net.Listen("tcp", addr)
 	if err == nil {
 		InfoLog("SocksProxy listen socks5 proxy on %v", addr)
+	}
+	return
+}
+
+//Run proxy listener
+func (s *SocksProxy) Run() (err error) {
+	if s.Listener != nil {
 		s.loopAccept(s.Listener)
 	}
 	return

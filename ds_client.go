@@ -49,8 +49,13 @@ func (c *ClientConf) Dial(remote string) (raw io.ReadWriteCloser, err error) {
 					address += fmt.Sprintf("?username=%v&password=%v", conf.Username, conf.Password)
 				}
 			}
-			ds.InfoLog("Client start one channel to %v", address)
+			ds.InfoLog("Client start connect one channel to %v", address)
 			raw, err = ds.WebsocketDialer("").Dial(address)
+			if err == nil {
+				ds.InfoLog("Client connect one channel to %v success", address)
+			} else {
+				ds.WarnLog("Client connect one channel fail with %v", err)
+			}
 		}
 		break
 	}
@@ -180,6 +185,8 @@ func startClient(c string) (err error) {
 		mux.HandleFunc("/pac.js", conf.PAC)
 		mux.HandleFunc("/changeProxyMode", conf.ChangeProxyMode)
 		mux.HandleFunc("/updateGfwlist", conf.UpdateGfwlist)
+		mux.HandleFunc("/loadConf", conf.LoadConf)
+		mux.HandleFunc("/updateConf", conf.UpdateConf)
 		server := &http.Server{Addr: conf.ManagerAddr, Handler: mux}
 		managerServer, err = net.Listen("tcp", conf.ManagerAddr)
 		if err != nil {
@@ -193,14 +200,21 @@ func startClient(c string) (err error) {
 	if len(conf.Mode) < 1 {
 		conf.Mode = "auto"
 	}
+	err = proxyServer.Listen(conf.ShareAddr)
+	if err != nil {
+		ds.ErrorLog("Client start proxy server fail with %v", err)
+		exitf(1)
+		return
+	}
 	changeProxyMode(conf.Mode)
-	proxyServer.Run(conf.ShareAddr)
+	proxyServer.Run()
 	return
 }
 
 func changeProxyMode(mode string) (message string, err error) {
 	if proxyServer == nil || proxyServer.Listener == nil || managerServer == nil {
 		err = fmt.Errorf("proxy server is not started")
+		fmt.Println("xxx-->")
 		return
 	}
 	proxyServerParts := strings.Split(proxyServer.Addr().String(), ":")
@@ -233,6 +247,7 @@ func workDir() (dir string) {
 
 func execDir() (dir string) {
 	dir, _ = exec.LookPath(os.Args[0])
+	dir = filepath.Dir(dir)
 	return
 }
 

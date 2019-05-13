@@ -2,12 +2,14 @@ package main
 
 import (
 	"flag"
+	"log"
 	"net"
 	"os"
 	"time"
 )
 
 func main() {
+	log.SetFlags(log.Lshortfile | log.Lmicroseconds)
 	var conf string
 	flag.StringVar(&conf, "f", "/etc/darksocks/darksocks.json", "the dark socket configure file")
 	var runServer bool

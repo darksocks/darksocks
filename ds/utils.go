@@ -99,27 +99,27 @@ func (p *PipedConn) String() string {
 
 //DebugLog is the debug level log
 func DebugLog(format string, args ...interface{}) {
-	log.Output(1, fmt.Sprintf("D "+format, args...))
+	log.Output(2, fmt.Sprintf("D "+format, args...))
 }
 
 //InfoLog is the info level log
 func InfoLog(format string, args ...interface{}) {
-	log.Output(1, fmt.Sprintf("I "+format, args...))
+	log.Output(2, fmt.Sprintf("I "+format, args...))
 }
 
 //WarnLog is the warn level log
 func WarnLog(format string, args ...interface{}) {
-	log.Output(1, fmt.Sprintf("W "+format, args...))
+	log.Output(2, fmt.Sprintf("W "+format, args...))
 }
 
 //ErrorLog is the error level log
 func ErrorLog(format string, args ...interface{}) {
-	log.Output(1, fmt.Sprintf("E "+format, args...))
+	log.Output(2, fmt.Sprintf("E "+format, args...))
 }
 
 //WriteJSON will marshal value to json and write to file
 func WriteJSON(filename string, v interface{}) (err error) {
-	data, err := json.MarshalIndent(v, "", " ")
+	data, err := json.MarshalIndent(v, "", "    ")
 	if err == nil {
 		err = ioutil.WriteFile(filename, data, os.ModePerm)
 	}
