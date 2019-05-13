@@ -15,6 +15,7 @@ xcopy darksocks-conf.bat build\%srv_name%
 xcopy darksocks-install.bat build\%srv_name%
 xcopy darksocks-uninstall.bat build\%srv_name%
 xcopy default-darksocks.json /F build\%srv_name%
+xcopy dsuser.json /F build\%srv_name%
 xcopy sysproxy.exe /F build\%srv_name%
 xcopy sysproxy64.exe /F build\%srv_name%
 xcopy gfwlist.txt /F build\%srv_name%

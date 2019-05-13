@@ -22,6 +22,7 @@ cp -f darksocks-install.sh $srv_out
 cp -f cert.sh $srv_out
 cp -f darksocks.service $srv_out
 cp -f default-darksocks.json $srv_out
+cp -f dsuser.json $srv_out
 cp -f gfwlist.txt $srv_out
 cp -f abp.js $srv_out
 cp -f networksetup-osx.sh $srv_out
