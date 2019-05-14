@@ -38,6 +38,7 @@ type ClientConf struct {
 	ShareAddr   string              `json:"share_addr"`
 	ManagerAddr string              `json:"manager_addr"`
 	Mode        string              `json:"mode"`
+	LogLevel    int                 `json:"log"`
 }
 
 //Dial connection by remote
@@ -56,7 +57,7 @@ func (c *ClientConf) Dial(remote string) (raw io.ReadWriteCloser, err error) {
 			ds.InfoLog("Client start connect one channel to %v", conf.Name)
 			raw, err = ds.WebsocketDialer("").Dial(address)
 			if err == nil {
-				ds.InfoLog("Client connect one channel to %v success", address)
+				ds.InfoLog("Client connect one channel to %v success", conf.Name)
 				conn := ds.NewStringConn(raw)
 				conn.Name = conf.Name
 				raw = conn
@@ -182,6 +183,7 @@ func startClient(c string) (err error) {
 	}
 	clientConf = c
 	clientConfDir = filepath.Dir(clientConf)
+	ds.SetLogLevel(conf.LogLevel)
 	client = ds.NewClient(ds.DefaultBufferSize, conf)
 	proxyServer = ds.NewSocksProxy()
 	proxyServer.Dialer = func(target string, raw io.ReadWriteCloser) (sid uint64, err error) {

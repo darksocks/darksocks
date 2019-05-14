@@ -20,6 +20,7 @@ type ServerConf struct {
 	HTTPSKey        string            `json:"https_key"`
 	Manager         map[string]string `json:"manager"`
 	UserFile        string            `json:"user_file"`
+	LogLevel        int               `json:"log"`
 }
 
 var serverConf string
@@ -37,6 +38,7 @@ func startServer(c string) (err error) {
 	}
 	serverConf = c
 	serverConfDir = filepath.Dir(serverConf)
+	ds.SetLogLevel(conf.LogLevel)
 	userFile := conf.UserFile
 	if !filepath.IsAbs(userFile) {
 		userFile, _ = filepath.Abs(filepath.Join(serverConfDir, userFile))
