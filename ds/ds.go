@@ -316,7 +316,7 @@ func (c *Client) ProcConn(raw io.ReadWriteCloser, target string) (err error) {
 	if err != nil {
 		return
 	}
-	DebugLog("Client start transfer %v to %v for %v", raw, conn, target)
+	DebugLog("Client try proxy %v to %v for %v", raw, conn, target)
 	_, err = conn.WriteCmd(append([]byte{0, 0, 0, 0, CmdConnDial}, []byte(target)...))
 	if err != nil {
 		conn.Err = err

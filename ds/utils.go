@@ -144,6 +144,7 @@ func SHA1(data []byte) string {
 
 //StringConn is an ReadWriteCloser for return  remote address info
 type StringConn struct {
+	Name string
 	io.ReadWriteCloser
 }
 
@@ -155,11 +156,29 @@ func NewStringConn(raw io.ReadWriteCloser) *StringConn {
 }
 
 func (s *StringConn) String() string {
+	if len(s.Name) > 0 {
+		return s.Name
+	}
 	if wsc, ok := s.ReadWriteCloser.(*websocket.Conn); ok {
 		return fmt.Sprintf("%v", wsc.RemoteAddr())
 	}
 	if netc, ok := s.ReadWriteCloser.(net.Conn); ok {
 		return fmt.Sprintf("%v", netc.RemoteAddr())
 	}
-	return fmt.Sprintf("xxx ss->%v", s.ReadWriteCloser)
+	return fmt.Sprintf("%v", s.ReadWriteCloser)
+}
+
+//TCPKeepAliveListener is normal tcp listner for set tcp connection keep alive
+type TCPKeepAliveListener struct {
+	*net.TCPListener
+}
+
+//Accept will accept one connection
+func (ln TCPKeepAliveListener) Accept() (net.Conn, error) {
+	tc, err := ln.AcceptTCP()
+	if err == nil {
+		tc.SetKeepAlive(true)
+		tc.SetKeepAlivePeriod(3 * time.Minute)
+	}
+	return tc, nil
 }

@@ -22,15 +22,17 @@ var client *ds.Client
 var proxyServer *ds.SocksProxy
 var managerServer net.Listener
 
+//ClientServerConf is pojo for dark socks server configure
 type ClientServerConf struct {
 	Enable   bool     `json:"enable"`
 	Name     string   `json:"name"`
 	Address  []string `json:"address"`
 	Username string   `json:"username"`
 	Password string   `json:"password"`
-	lastUsed int      `json:"-"`
+	LastUsed int      `json:"-"`
 }
 
+//ClientConf is pojo for dark socks client configure
 type ClientConf struct {
 	Servers     []*ClientServerConf `json:"servers"`
 	ShareAddr   string              `json:"share_addr"`
@@ -38,11 +40,12 @@ type ClientConf struct {
 	Mode        string              `json:"mode"`
 }
 
+//Dial connection by remote
 func (c *ClientConf) Dial(remote string) (raw io.ReadWriteCloser, err error) {
 	for _, conf := range c.Servers {
 		if conf.Enable && len(conf.Address) > 0 {
-			address := conf.Address[conf.lastUsed]
-			conf.lastUsed = (conf.lastUsed + 1) % len(conf.Address)
+			address := conf.Address[conf.LastUsed]
+			conf.LastUsed = (conf.LastUsed + 1) % len(conf.Address)
 			if len(conf.Username) > 0 && len(conf.Password) > 0 {
 				if strings.Contains(address, "?") {
 					address += fmt.Sprintf("&username=%v&password=%v", conf.Username, conf.Password)
@@ -50,10 +53,13 @@ func (c *ClientConf) Dial(remote string) (raw io.ReadWriteCloser, err error) {
 					address += fmt.Sprintf("?username=%v&password=%v", conf.Username, conf.Password)
 				}
 			}
-			ds.InfoLog("Client start connect one channel to %v", address)
+			ds.InfoLog("Client start connect one channel to %v", conf.Name)
 			raw, err = ds.WebsocketDialer("").Dial(address)
 			if err == nil {
 				ds.InfoLog("Client connect one channel to %v success", address)
+				conn := ds.NewStringConn(raw)
+				conn.Name = conf.Name
+				raw = conn
 			} else {
 				ds.WarnLog("Client connect one channel fail with %v", err)
 			}
@@ -197,7 +203,7 @@ func startClient(c string) (err error) {
 			return
 		}
 		ds.InfoLog("Client start web server on %v", managerServer.Addr())
-		go server.Serve(&tcpKeepAliveListener{TCPListener: managerServer.(*net.TCPListener)})
+		go server.Serve(&ds.TCPKeepAliveListener{TCPListener: managerServer.(*net.TCPListener)})
 	}
 	if len(conf.Mode) < 1 {
 		conf.Mode = "auto"
@@ -216,7 +222,6 @@ func startClient(c string) (err error) {
 func changeProxyMode(mode string) (message string, err error) {
 	if proxyServer == nil || proxyServer.Listener == nil || managerServer == nil {
 		err = fmt.Errorf("proxy server is not started")
-		fmt.Println("xxx-->")
 		return
 	}
 	proxyServerParts := strings.Split(proxyServer.Addr().String(), ":")

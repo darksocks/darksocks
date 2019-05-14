@@ -3,13 +3,12 @@ package main
 import (
 	"flag"
 	"log"
-	"net"
 	"os"
-	"time"
 )
 
 func main() {
-	log.SetFlags(log.Lshortfile | log.Lmicroseconds)
+	log.SetFlags(log.Lshortfile | log.Ldate | log.Lmicroseconds)
+	log.SetOutput(os.Stdout)
 	var conf string
 	flag.StringVar(&conf, "f", "/etc/darksocks/darksocks.json", "the dark socket configure file")
 	var runServer bool
@@ -27,16 +26,3 @@ func main() {
 }
 
 var exitf = os.Exit
-
-type tcpKeepAliveListener struct {
-	*net.TCPListener
-}
-
-func (ln tcpKeepAliveListener) Accept() (net.Conn, error) {
-	tc, err := ln.AcceptTCP()
-	if err == nil {
-		tc.SetKeepAlive(true)
-		tc.SetKeepAlivePeriod(3 * time.Minute)
-	}
-	return tc, nil
-}
