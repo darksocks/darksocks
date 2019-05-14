@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/darksocks/darksocks/ds"
 )
@@ -94,6 +95,8 @@ func (c *ClientConf) PAC(res http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(res, "%v", err)
 		return
 	}
+	userRules, _ := readUserRules()
+	gfwRules = append(gfwRules, userRules...)
 	gfwRulesJS, _ := json.Marshal(gfwRules)
 	abpStr = strings.Replace(abpStr, "__RULES__", string(gfwRulesJS), 1)
 	//
@@ -230,9 +233,11 @@ func changeProxyMode(mode string) (message string, err error) {
 	managerServerParts := strings.Split(managerServer.Addr().String(), ":")
 	switch mode {
 	case "auto":
-		pacURL := fmt.Sprintf("http://127.0.0.1:%v/pac.js", managerServerParts[len(managerServerParts)-1])
+		pacURL := fmt.Sprintf("http://127.0.0.1:%v/pac.js?timestamp=%v", managerServerParts[len(managerServerParts)-1], time.Now().Local().UnixNano()/1e6)
+		ds.InfoLog("start change proxy mode to %v by %v", mode, pacURL)
 		message, err = changeProxyModeNative("auto", pacURL)
 	case "global":
+		ds.InfoLog("start change proxy mode to %v by 127.0.0.1:%v", mode, proxyServerParts[len(proxyServerParts)-1])
 		message, err = changeProxyModeNative("global", "127.0.0.1", proxyServerParts[len(proxyServerParts)-1])
 	default:
 		message, err = changeProxyModeNative("manual")
@@ -279,6 +284,27 @@ func readGfwlist() (rules []string, err error) {
 	gfwRulesAll := strings.Split(string(gfwData), "\n")
 	for _, rule := range gfwRulesAll {
 		if strings.HasPrefix(rule, "[") || strings.HasPrefix(rule, "!") || len(strings.TrimSpace(rule)) < 1 {
+			continue
+		}
+		rules = append(rules, rule)
+	}
+	return
+}
+
+func readUserRules() (rules []string, err error) {
+	gfwFile := filepath.Join(workDir(), "user_rules.txt")
+	gfwData, err := ioutil.ReadFile(gfwFile)
+	if err != nil {
+		gfwFile = filepath.Join(execDir(), "user_rules.txt")
+		gfwData, err = ioutil.ReadFile(gfwFile)
+		if err != nil {
+			err = fmt.Errorf("read gfwlist.txt fail with %v", err)
+			return
+		}
+	}
+	gfwRulesAll := strings.Split(string(gfwData), "\n")
+	for _, rule := range gfwRulesAll {
+		if strings.HasPrefix(rule, "--") || len(strings.TrimSpace(rule)) < 1 {
 			continue
 		}
 		rules = append(rules, rule)
