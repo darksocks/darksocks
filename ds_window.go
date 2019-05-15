@@ -2,13 +2,14 @@ package main
 
 import (
 	"os/exec"
+	"path/filepath"
 	"runtime"
 )
 
 func changeProxyModeNative(args ...string) (message string, err error) {
-	var runner = "sysproxy"
+	var runner = filepath.Join(execDir(), "sysproxy.exe")
 	if runtime.GOARCH == "amd64" {
-		runner = "sysproxy64"
+		runner = filepath.Join(execDir(), "sysproxy64.exe")
 	}
 	var cmd *exec.Cmd
 	switch args[0] {
