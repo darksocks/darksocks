@@ -1,0 +1,96 @@
+.app-conf{
+    padding-left: 8px;
+    padding-right: 8px;
+}
+.app-conf-table{
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+.app-conf-table tr{
+    height: 36px;
+}
+.app-conf-label{
+    font-size: 15px;
+    width: 60px;
+    text-align: right;
+    padding-right: 8px;
+}
+
+.app-conf-text{
+    height: 22px;
+}
+
+.app-conf-file{
+    height: 22px;
+    font-size: 12px;
+    width: 300px;
+}
+
+.app-conf-web-text{
+    vertical-align: middle;
+    height: 22px;
+    width: 70px;
+}
+
+.app-conf-save{
+    float: right;
+    margin-right: 80px;
+}
+
+
+.app-server-table{
+    font-size: 14px;
+    padding-top: 16px;
+    margin-top: 1px;
+}
+
+.app-server-table th,td{
+    padding: 6px;
+}
+
+.app-server-editing input{
+    width: 100%;
+}
+
+.app-server-red{
+    background-color: rgb(219, 148, 148);
+}
+
+.app-server-enable{
+    width: 10px;
+    border-right: 0px;
+    padding-right: 0px;
+}
+
+.app-server-enable input{
+    margin-top: 6px;
+}
+
+.app-server-name{
+    width:120px;
+    border-left: 0px;
+}
+
+.app-server-name input{
+    width: 100%;
+}
+
+.app-server-addr input{
+    width: 100%;
+}
+
+.app-server-username{
+    width:100px;
+}
+
+.app-server-username input{
+    width: 100%;
+}
+
+.app-server-password{
+    width:100px;
+}
+
+.app-server-password input{
+    width: 100%;
+}

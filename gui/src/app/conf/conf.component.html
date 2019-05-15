@@ -1,0 +1,90 @@
+<div class="app-conf">
+  <table class="app-conf-table">
+    <tr>
+      <td class="app-conf-label">Share</td>
+      <td class="app-conf-value">
+        <input class="app-conf-text" type="text" placeholder="127.0.0.1:1089" [(ngModel)]="conf.share_addr">
+      </td>
+    </tr>
+    <tr>
+      <td class="app-conf-label">Manager</td>
+      <td class="app-conf-value">
+        <input class="app-conf-text" type="text" placeholder="127.0.0.1:0" [(ngModel)]="conf.manager_addr">
+      </td>
+    </tr>
+    <tr>
+      <td class="app-conf-label">Log</td>
+      <td class="app-conf-value">
+        <select [(ngModel)]="conf.log">
+          <option value="0">Default</option>
+          <option value="10">Error</option>
+          <option value="20">Warn</option>
+          <option value="30">Info</option>
+          <option value="40">Debug</option>
+        </select>
+      </td>
+    </tr>
+    <tr>
+      <td class="app-conf-label">Mode</td>
+      <td class="app-conf-value">
+        <select [(ngModel)]="conf.mode">
+          <option value="auto">Auto</option>
+          <option value="global">Global</option>
+          <option value="manual">Manual</option>
+        </select>
+      </td>
+    </tr>
+  </table>
+  <table class="table table-bordered app-server-table">
+    <tr>
+      <th colspan="2">Name</th>
+      <th>Address</th>
+      <th>Username</th>
+      <th>Password</th>
+      <th>Action</th>
+    </tr>
+    <tr *ngFor="let s of conf.servers;let i=index">
+      <td class="app-server-enable">
+        <input type="checkbox" [checked]="s.enable" (change)="enable($event,i,s)">
+      </td>
+      <td class="app-server-name">
+        {{s.name}}
+      </td>
+      <td>{{s.address.join(',')}}</td>
+      <td>{{s.username}}</td>
+      <td>***</td>
+      <td>
+        <a href="#" (click)="remove(i,s)">Remove</a>
+      </td>
+    </tr>
+    <tr class="server-editing">
+      <td class="app-server-enable">
+        <input type="checkbox" [(ngModel)]="server.enable">
+      </td>
+      <td class="app-server-name" [class.app-server-red]="showError&&!server.name">
+        <input type="text" [(ngModel)]="server.name">
+      </td>
+      <td class="app-server-addr" [class.app-server-red]="showError&&!server.addr">
+        <input type="text" [(ngModel)]="server.addr">
+      </td>
+      <td class="app-server-username" [class.app-server-red]="showError&&!server.username">
+        <input type="text" [(ngModel)]="server.username">
+      </td>
+      <td class="app-server-password" [class.app-server-red]="showError&&!server.password">
+        <input type="password" [(ngModel)]="server.password">
+      </td>
+      <td>
+        <a href="#" (click)="add()">Add</a>
+      </td>
+    </tr>
+  </table>
+  <div>
+    <div class="app-conf-save">
+      <span [hidden]="!message">{{message}}</span>
+      &nbsp;&nbsp;
+      <button type="button" class="btn btn-secondary" (click)="reload()">Reload</button>
+      &nbsp;&nbsp;
+      <button type="button" class="btn btn-info" (click)="save()">Save</button>
+    </div>
+  </div>
+</div>
