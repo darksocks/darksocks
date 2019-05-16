@@ -38,7 +38,8 @@ type ClientServerConf struct {
 //ClientConf is pojo for dark socks client configure
 type ClientConf struct {
 	Servers     []*ClientServerConf `json:"servers"`
-	ShareAddr   string              `json:"share_addr"`
+	SocksAddr   string              `json:"socks_addr"`
+	HTTPAddr    string              `json:"http_addr"`
 	ManagerAddr string              `json:"manager_addr"`
 	Mode        string              `json:"mode"`
 	LogLevel    int                 `json:"log"`
@@ -198,8 +199,8 @@ func startClient(c string) (err error) {
 		exitf(1)
 		return
 	}
-	if len(conf.ShareAddr) < 1 {
-		ds.ErrorLog("Client share_addr is required")
+	if len(conf.SocksAddr) < 1 {
+		ds.ErrorLog("Client socks_addr is required")
 		exitf(1)
 		return
 	}
@@ -234,7 +235,7 @@ func startClient(c string) (err error) {
 	if len(conf.Mode) < 1 {
 		conf.Mode = "auto"
 	}
-	err = proxyServer.Listen(conf.ShareAddr)
+	err = proxyServer.Listen(conf.SocksAddr)
 	if err != nil {
 		ds.ErrorLog("Client start proxy server fail with %v", err)
 		exitf(1)
@@ -245,6 +246,9 @@ func startClient(c string) (err error) {
 	if managerServer != nil {
 		ds.InfoLog("Client start web server on %v", managerListener.Addr())
 		go managerServer.Serve(managerListener)
+	}
+	if len(conf.HTTPAddr) > 0 {
+		go runPrivoxy(conf.HTTPAddr)
 	}
 	go handlerClientKill()
 	proxyServer.Run()
@@ -378,3 +382,54 @@ func updateGfwlist() (err error) {
 // 	err = ds.WriteJSON(filepath.Join(workDir(), "runtime.json"), runtime)
 // 	return
 // }
+
+const (
+	//PrivoxyTmpl is privoxy template
+	PrivoxyTmpl = `
+listen-address {http}
+toggle  1
+enable-remote-toggle 1
+enable-remote-http-toggle 1
+enable-edit-actions 0
+enforce-blocks 0
+buffer-limit 4096
+forwarded-connect-retries  0
+accept-intercepted-requests 0
+allow-cgi-request-crunching 0
+split-large-forms 0
+keep-alive-timeout 5
+socket-timeout 60
+
+forward-socks5 / {socks5} .
+forward         192.168.*.*/     .
+forward         10.*.*.*/        .
+forward         127.*.*.*/       .
+
+	`
+)
+
+func writePrivoxyConf(confFile, httpAddr, socksAddr string) (err error) {
+	data := PrivoxyTmpl
+	data = strings.Replace(data, "{http}", httpAddr, 1)
+	data = strings.Replace(data, "{socks5}", socksAddr, 1)
+	err = ioutil.WriteFile(confFile, []byte(data), os.ModePerm)
+	return
+}
+
+func runPrivoxy(httpAddr string) (err error) {
+	proxyServerParts := strings.SplitN(proxyServer.Addr().String(), ":", -1)
+	socksAddr := fmt.Sprintf("127.0.0.1:%v", proxyServerParts[len(proxyServerParts)-1])
+	ds.InfoLog("Client start privoxy by listening http proxy on %v and forwarding to %v", httpAddr, socksAddr)
+	confFile := filepath.Join(workDir(), "privoxy.conf")
+	err = writePrivoxyConf(confFile, httpAddr, socksAddr)
+	if err != nil {
+		ds.WarnLog("Client save privoxy config to %v fail with %v", confFile, err)
+		return
+	}
+	err = runPrivoxyNative(confFile)
+	if err != nil {
+		ds.WarnLog("Client run privoxy fail with %v", err)
+		return
+	}
+	return
+}

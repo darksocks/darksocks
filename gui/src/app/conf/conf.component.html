@@ -1,9 +1,15 @@
 <div class="app-conf">
   <table class="app-conf-table">
     <tr>
-      <td class="app-conf-label">Share</td>
+      <td class="app-conf-label">Socks</td>
       <td class="app-conf-value">
-        <input class="app-conf-text" type="text" placeholder="127.0.0.1:1089" [(ngModel)]="conf.share_addr">
+        <input class="app-conf-text" type="text" placeholder="127.0.0.1:1189" [(ngModel)]="conf.socks_addr">
+      </td>
+    </tr>
+    <tr>
+      <td class="app-conf-label">HTTP</td>
+      <td class="app-conf-value">
+        <input class="app-conf-text" type="text" placeholder="127.0.0.1:1188" [(ngModel)]="conf.http_addr">
       </td>
     </tr>
     <tr>
