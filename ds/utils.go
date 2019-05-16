@@ -212,5 +212,5 @@ func (ln TCPKeepAliveListener) Accept() (net.Conn, error) {
 		tc.SetKeepAlive(true)
 		tc.SetKeepAlivePeriod(3 * time.Minute)
 	}
-	return tc, nil
+	return tc, err
 }

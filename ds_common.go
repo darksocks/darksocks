@@ -18,5 +18,6 @@ func workDir() (dir string) {
 func execDir() (dir string) {
 	dir, _ = exec.LookPath(os.Args[0])
 	dir = filepath.Dir(dir)
+	dir, _ = filepath.Abs(dir)
 	return
 }

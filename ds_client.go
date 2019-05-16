@@ -9,7 +9,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,7 +22,8 @@ var clientConf string
 var clientConfDir string
 var client *ds.Client
 var proxyServer *ds.SocksProxy
-var managerServer net.Listener
+var managerServer *http.Server
+var managerListener net.Listener
 
 //ClientServerConf is pojo for dark socks server configure
 type ClientServerConf struct {
@@ -170,6 +173,23 @@ func (c *ClientConf) UpdateConf(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%v", "ok")
 }
 
+//EnableServer is http handler to enable server by index
+func (c *ClientConf) EnableServer(w http.ResponseWriter, r *http.Request) {
+	index, err := strconv.ParseInt(r.URL.Query().Get("index"), 10, 32)
+	if err != nil {
+		fmt.Fprintf(w, "parset index argment")
+		return
+	}
+	if int(index) >= len(c.Servers) {
+		fmt.Fprintf(w, "index invalid")
+		return
+	}
+	for i, server := range c.Servers {
+		server.Enable = i == int(index)
+	}
+	fmt.Fprintf(w, "%v", "ok")
+}
+
 func startClient(c string) (err error) {
 	conf := &ClientConf{}
 	err = ds.ReadJSON(c, &conf)
@@ -199,15 +219,17 @@ func startClient(c string) (err error) {
 		mux.HandleFunc("/updateGfwlist", conf.UpdateGfwlist)
 		mux.HandleFunc("/loadConf", conf.LoadConf)
 		mux.HandleFunc("/updateConf", conf.UpdateConf)
-		server := &http.Server{Addr: conf.ManagerAddr, Handler: mux}
-		managerServer, err = net.Listen("tcp", conf.ManagerAddr)
+		mux.HandleFunc("/enableServer", conf.EnableServer)
+		var listener net.Listener
+		managerServer = &http.Server{Addr: conf.ManagerAddr, Handler: mux}
+		listener, err = net.Listen("tcp", conf.ManagerAddr)
 		if err != nil {
 			ds.ErrorLog("Client start web server fail with %v", err)
 			exitf(1)
 			return
 		}
-		ds.InfoLog("Client start web server on %v", managerServer.Addr())
-		go server.Serve(&ds.TCPKeepAliveListener{TCPListener: managerServer.(*net.TCPListener)})
+		managerServer.Addr = listener.Addr().String()
+		managerListener = &ds.TCPKeepAliveListener{TCPListener: listener.(*net.TCPListener)}
 	}
 	if len(conf.Mode) < 1 {
 		conf.Mode = "auto"
@@ -219,8 +241,35 @@ func startClient(c string) (err error) {
 		return
 	}
 	changeProxyMode(conf.Mode)
+	// writeRuntimeVar()
+	if managerServer != nil {
+		ds.InfoLog("Client start web server on %v", managerListener.Addr())
+		go managerServer.Serve(managerListener)
+	}
+	go handlerClientKill()
 	proxyServer.Run()
+	ds.InfoLog("Client all listener is stopped")
+	changeProxyMode("manual")
+	// clearRuntimeVar()
 	return
+}
+
+func stopClient() {
+	ds.InfoLog("Client stopping client listener")
+	if proxyServer != nil {
+		proxyServer.Close()
+	}
+	if managerServer != nil {
+		managerServer.Close()
+	}
+}
+
+func handlerClientKill() {
+	c := make(chan os.Signal, 1000)
+	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Kill)
+	<-c
+	stopClient()
 }
 
 func changeProxyMode(mode string) (message string, err error) {
@@ -229,7 +278,7 @@ func changeProxyMode(mode string) (message string, err error) {
 		return
 	}
 	proxyServerParts := strings.Split(proxyServer.Addr().String(), ":")
-	managerServerParts := strings.Split(managerServer.Addr().String(), ":")
+	managerServerParts := strings.Split(managerServer.Addr, ":")
 	switch mode {
 	case "auto":
 		pacURL := fmt.Sprintf("http://127.0.0.1:%v/pac.js?timestamp=%v", managerServerParts[len(managerServerParts)-1], time.Now().Local().UnixNano()/1e6)
@@ -309,3 +358,23 @@ func updateGfwlist() (err error) {
 	err = ioutil.WriteFile(gfwFile, gfwData, os.ModePerm)
 	return
 }
+
+// func writeRuntimeVar() (err error) {
+// 	runtime := map[string]interface{}{}
+// 	if managerListener != nil {
+// 		parts := strings.SplitN(managerListener.Addr().String(), ":", -1)
+// 		runtime["manager_port"], _ = strconv.ParseInt(parts[len(parts)-1], 10, 64)
+// 	}
+// 	if proxyServer != nil {
+// 		parts := strings.SplitN(proxyServer.Addr().String(), ":", -1)
+// 		runtime["share_port"], _ = strconv.ParseInt(parts[len(parts)-1], 10, 64)
+// 	}
+// 	err = ds.WriteJSON(filepath.Join(workDir(), "runtime.json"), runtime)
+// 	return
+// }
+//
+// func clearRuntimeVar() (err error) {
+// 	runtime := map[string]interface{}{}
+// 	err = ds.WriteJSON(filepath.Join(workDir(), "runtime.json"), runtime)
+// 	return
+// }

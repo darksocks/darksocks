@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -120,11 +122,14 @@ func startServer(c string) (err error) {
 			}(a)
 		}
 	}
+	go handlerServerKill()
 	wait.Wait()
+	ds.InfoLog("Server all listener is stopped")
 	return
 }
 
 func stopServer() {
+	ds.InfoLog("Server stopping client listener")
 	httpServerLck.Lock()
 	for _, s := range httpServer {
 		s.Close()
@@ -154,4 +159,12 @@ func parseListenAddr(addr string) (addrs []string, err error) {
 		addrs = append(addrs, fmt.Sprintf("%v:%v", parts[0], i))
 	}
 	return
+}
+
+func handlerServerKill() {
+	c := make(chan os.Signal, 1000)
+	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Kill)
+	<-c
+	stopServer()
 }
