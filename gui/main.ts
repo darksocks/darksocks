@@ -4,15 +4,34 @@ import * as path from "path"
 import * as log4js from "log4js"
 import * as os from "os"
 import * as fs from "fs"
-import * as url from "url"
+import * as http from "http"
+import * as assert from "assert"
 import { spawn } from "child_process";
 const Log = log4js.getLogger("main")
 
 const homedir = os.homedir();
 
+function httpGet(url): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+        http.get(url, (res) => {
+            const { statusCode } = res;
+            if (statusCode !== 200) {
+                res.resume();
+                reject(new Error(`Status Code: ${statusCode}`))
+                return;
+            }
+            res.setEncoding('utf8');
+            let rawData = '';
+            res.on('data', (chunk) => { rawData += chunk; });
+            res.on('end', () => { resolve(rawData) });
+        }).on('error', (e) => { reject(e) });
+    })
+}
+
 class DarkSocks {
     public homeDir = homedir;
     public workingFile: string = os.homedir() + "/.darksocks/darksocks.json";
+    public runtimeFile: string = os.homedir() + "/.darksocks/runtime.json";
     public handler: DarkSocksHandler
     public status: string = "Stopped";
     private runner: any;
@@ -26,6 +45,7 @@ class DarkSocks {
         Log.info("darksocks is starting")
         this.runner = spawn(__dirname + '/../darksocks/darksocks', ["-c", "-f", this.workingFile]);
         this.runner.stdout.on('data', (data) => {
+            console.log(data.toString().trim())
             if (this.handler) {
                 this.handler.onLog(data.toString());
             }
@@ -35,6 +55,7 @@ class DarkSocks {
             }
         });
         this.runner.stderr.on('data', (data) => {
+            console.error(data.toString().trim())
             if (this.handler) {
                 this.handler.onLog(data.toString())
             }
@@ -82,6 +103,7 @@ class DarkSocks {
         return "OK"
     }
     public loadConf(): any {
+        Log.info(`load configure from ${this.workingFile}`)
         try {
             var data = fs.readFileSync(this.workingFile)
             return JSON.parse(data.toString());
@@ -91,6 +113,7 @@ class DarkSocks {
     }
     public saveConf(conf: any) {
         try {
+            Log.info(`saving configure by ${JSON.stringify(conf)}`)
             let dir = path.dirname(this.workingFile);
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir)
@@ -104,6 +127,21 @@ class DarkSocks {
             return "" + e;
         }
     }
+    public enableServer(index: number) {
+        var conf = this.loadConf();
+        for (var i = 0; i < conf.servers.length; i++) {
+            conf.servers[i].enable = i == index
+        }
+        this.saveConf(conf)
+    }
+    public readRuntimeVar(): any {
+        try {
+            var data = fs.readFileSync(this.runtimeFile)
+            return JSON.parse(data.toString());
+        } catch (e) {
+            return {};
+        }
+    }
 }
 
 export interface DarkSocksHandler {
@@ -113,36 +151,22 @@ export interface DarkSocksHandler {
 
 
 let darksocks = new DarkSocks()
+let logLevel = "info"
 
-let mainWindow: BrowserWindow
-function createWindow() {
-    let level = "info"
+function initial() {
     if (process.argv.length > 2) {
-        level = process.argv[2]
+        logLevel = process.argv[2]
     }
     log4js.configure({
         appenders: {
             ruleConsole: { type: 'console' },
         },
         categories: {
-            default: { appenders: ['ruleConsole'], level: level }
+            default: { appenders: ['ruleConsole'], level: logLevel }
         },
     });
     let tray = new Tray(__dirname + '/view/assets/stopped@4x.png')
     tray.setToolTip('This is DarkSocks')
-    mainWindow = new BrowserWindow({
-        width: level == "debug" ? 1500 : 1024,
-        height: level == "debug" ? 518 : 520,
-        frame: level == "debug",
-        title: "DarkSocks",
-    })
-    mainWindow.on("close", () => {
-        mainWindow = null;
-    })
-    if (level == "debug") {
-        mainWindow.webContents.openDevTools()
-    }
-    mainWindow.loadFile(`dist/view/index.html`)
     function callOpen(f: string) {
     }
     function clickMenu(menuItem: MenuItem, browserWindow: BrowserWindow, event: Event) {
@@ -150,11 +174,15 @@ function createWindow() {
         callOpen(menu.id)
     }
     function reloadMenu() {
+        Log.info("reloading menu")
         let menus: MenuItemConstructorOptions[] = []
+        let action = darksocks.status == "Stopped" ? "Start DarkSocks" : "Stop DarkSocks"
         menus.push(
-            { label: 'DarkSocks ' + darksocks.status, type: 'normal', enabled: false },
+            { label: 'DarkSocks:' + darksocks.status, type: 'normal', enabled: false },
             {
-                label: 'DarkSocks Start/Stop', type: 'normal', click: () => {
+                label: action,
+                type: 'normal',
+                click: () => {
                     if (darksocks.status == "Stopped") {
                         darksocks.start()
                     } else if (darksocks.status == "Running") {
@@ -163,7 +191,9 @@ function createWindow() {
                 }
             },
             {
-                label: 'DarkSocks Restart', type: 'normal', click: () => {
+                label: 'Restart DarkSocks',
+                type: 'normal',
+                click: () => {
                     darksocks.restart()
                 }
             },
@@ -173,12 +203,18 @@ function createWindow() {
             menus.push({ type: 'separator' })
             for (var i = 0; i < conf.servers.length; i++) {
                 menus.push({
-                    icon: conf.servers[i].enable ? nativeImage.createFromPath(__dirname + '/view/assets/server_using.png') : "",
+                    id: `server-${i}`,
+                    checked: true && conf.servers[i].enable,
                     label: conf.servers[i].name,
-                    type: 'normal',
-                    click: () => {
-
-                    }
+                    type: 'checkbox',
+                    click: (m) => {
+                        darksocks.enableServer(parseInt((m as any).id.replace("server-", "")))
+                        if (mainWindow) {
+                            mainWindow.webContents.send("change-server","")
+                        }
+                        darksocks.restart()
+                        reloadMenu()
+                    },
                 })
             }
         }
@@ -208,23 +244,27 @@ function createWindow() {
             if (mainWindow) {
                 mainWindow.webContents.send("log", m)
             }
-            //Log.info(m);
+            // console.log(m.trim())
         },
         onStatus: (s) => {
             if (mainWindow) {
                 mainWindow.webContents.send("status", s)
             }
             reloadMenu()
-            Log.info("change to ", s)
+            Log.info("darksocks status change to ", s)
             if (s == "Running") {
                 tray.setImage(__dirname + '/view/assets/running@4x.png')
+                app.dock.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_running.png'))
             } else {
                 tray.setImage(__dirname + '/view/assets/stopped@4x.png')
+                app.dock.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_stopped.png'))
             }
         }
     }
     ipcMain.on("hideConfigure", () => {
-        mainWindow.hide()
+        if (mainWindow) {
+            mainWindow.hide()
+        }
     })
     ipcMain.on("startDarksocks", (e) => {
         e.returnValue = darksocks.start()
@@ -236,11 +276,17 @@ function createWindow() {
         e.returnValue = darksocks.loadConf()
     })
     ipcMain.on("saveConf", (e, args) => {
-        console.log("saving config ", args);
         e.returnValue = darksocks.saveConf(args)
+        reloadMenu()
     })
     ipcMain.on("loadStatus", (e) => {
         e.returnValue = darksocks.status;
+    });
+    ipcMain.on("hideConfigure", (e) => {
+        if (mainWindow) {
+            mainWindow.close();
+        }
+        e.returnValue = "OK"
     });
     reloadMenu()
     const template: MenuItemConstructorOptions[] = [
@@ -268,14 +314,36 @@ function createWindow() {
     ]
     const menu = Menu.buildFromTemplate(template)
     Menu.setApplicationMenu(menu)
+    app.dock.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_stopped.png'))
+}
+
+let mainWindow: BrowserWindow
+function createWindow() {
+    mainWindow = new BrowserWindow({
+        width: logLevel == "debug" ? 1500 : 1024,
+        height: logLevel == "debug" ? 518 : 520,
+        frame: logLevel == "debug",
+        title: "DarkSocks",
+    })
+    mainWindow.on("close", () => {
+        Log.info("main window is closed")
+        mainWindow = null;
+    })
+    if (logLevel == "debug") {
+        mainWindow.webContents.openDevTools()
+    }
+    mainWindow.loadFile(`dist/view/index.html`)
+    app.dock.show()
 }
 
 app.on('ready', () => {
+    initial()
     createWindow()
 })
 
 app.on('window-all-closed', () => {
-    mainWindow == null;
+    Log.info("all window is closed")
+    app.dock.hide()
 })
 
 app.on('activate', () => {

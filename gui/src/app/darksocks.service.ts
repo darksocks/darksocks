@@ -14,6 +14,9 @@ export class DarksocksService {
     ipcRenderer.on("status", (e, m) => {
       this.handler.next({ cmd: "status", status: m })
     })
+    ipcRenderer.on("change-server", (e, m) => {
+      this.handler.next({ cmd: "change-server", status: "" })
+    })
   }
   public startDarksocks() {
     return ipcRenderer.sendSync("startDarksocks", {})

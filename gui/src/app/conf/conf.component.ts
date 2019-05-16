@@ -1,4 +1,4 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, OnInit, Input, ChangeDetectorRef } from '@angular/core';
 import { DarksocksService } from '../darksocks.service';
 
 @Component({
@@ -8,6 +8,7 @@ import { DarksocksService } from '../darksocks.service';
 })
 export class ConfComponent implements OnInit {
   srv: DarksocksService;
+  ref: ChangeDetectorRef
   conf: any = {}
   server: any = {}
   message: string = ""
@@ -15,10 +16,17 @@ export class ConfComponent implements OnInit {
   showError: boolean = false
   @Input() set activated(v: boolean) {
   }
-  constructor(srv: DarksocksService) {
+  constructor(srv: DarksocksService, ref: ChangeDetectorRef) {
     this.srv = srv;
+    this.ref = ref;
   }
   ngOnInit() {
+    this.srv.handler.subscribe(n => {
+      if (n.cmd == "change-server") {
+        this.reload()
+        this.ref.detectChanges()
+      }
+    })
     this.reload();
   }
   reload() {

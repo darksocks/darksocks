@@ -6,3 +6,5 @@ dscert.crt
 dscert.key
 darksocks.exe
 build
+gui/icon.iconset
+darksocks
