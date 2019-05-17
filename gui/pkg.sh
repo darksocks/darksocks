@@ -9,8 +9,8 @@ pkg_osx(){
     npm run pack-osx
     cd out
     # plutil -insert LSUIElement -bool true darksocks-darwin-x64/darksocks.app/Contents/Info.plist
-    mv darksocks-darwin-x64 darksocks-darwin-x64-$pkg_ver
-    7z a -r darksocks-darwin-x64-$pkg_ver.zip darksocks-darwin-x64-$pkg_ver -x!*.ts -x!*.map -x!*.h -x!*.m -x!*.md -x!*.scss
+    mv Darksocks-darwin-x64 Darksocks-darwin-x64-$pkg_ver
+    7z a -r Darksocks-darwin-x64-$pkg_ver.zip Darksocks-darwin-x64-$pkg_ver -x!*.ts -x!*.map -x!*.h -x!*.m -x!*.md -x!*.scss
     cd ../
 }
 pkg_linux(){

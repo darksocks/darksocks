@@ -18,8 +18,8 @@ export class LogComponent implements OnInit {
     this.srv.handler.subscribe(n => {
       if (n.cmd == "log") {
         var m = this.log.nativeElement.innerText;
-        if (m.length + n.m.length > 521 * 1024) {
-          m = m.substring(m.length + n.m.length - 521 * 1024);
+        if (m.length + n.m.length > 128 * 1024) {
+          m = m.substring(m.length + n.m.length - 128 * 1024);
         }
         this.log.nativeElement.innerText = m + n.m;
         var logview = document.querySelector(".logview");
