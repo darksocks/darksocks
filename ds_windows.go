@@ -1,7 +1,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -26,14 +26,17 @@ func changeProxyModeNative(args ...string) (message string, err error) {
 	return
 }
 
+var privoxyRunner *exec.Cmd
+
 func runPrivoxyNative(conf string) (err error) {
 	var runner = filepath.Join(execDir(), "privoxy.exe")
-	cmd := exec.Command(runner, "--no-daemon", conf)
-	cmd.Stderr = ioutil.Discard
-	cmd.Stdout = ioutil.Discard
-	err = cmd.Start()
+	privoxyRunner = exec.Command(runner, "--no-daemon", conf)
+	privoxyRunner.Stderr = os.Stdout
+	privoxyRunner.Stdout = os.Stderr
+	err = privoxyRunner.Start()
 	if err == nil {
-		err = cmd.Wait()
+		err = privoxyRunner.Wait()
 	}
+	privoxyRunner = nil
 	return
 }

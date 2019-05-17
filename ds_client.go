@@ -210,7 +210,7 @@ func startClient(c string) (err error) {
 	client = ds.NewClient(ds.DefaultBufferSize, conf)
 	proxyServer = ds.NewSocksProxy()
 	proxyServer.Dialer = func(target string, raw io.ReadWriteCloser) (sid uint64, err error) {
-		client.ProcConn(raw, target)
+		err = client.ProcConn(raw, target)
 		return
 	}
 	if len(conf.ManagerAddr) > 0 {
@@ -265,6 +265,9 @@ func stopClient() {
 	}
 	if managerServer != nil {
 		managerServer.Close()
+	}
+	if privoxyRunner != nil && privoxyRunner.Process != nil {
+		privoxyRunner.Process.Kill()
 	}
 }
 
