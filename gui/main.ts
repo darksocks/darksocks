@@ -165,6 +165,9 @@ class DarkSocks {
         Log.info(`save user rules to ${this.userRuleFile}`)
         try {
             fs.writeFileSync(this.userRuleFile, data);
+            if (this.status != "Stopped") {
+                this.restart()
+            }
             return "OK"
         } catch (e) {
             return "" + e;

@@ -10,6 +10,7 @@ export class RulesComponent implements OnInit {
   srv: DarksocksService;
   rules: string = ""
   message: string = ""
+  dimissDelay: number = 4000
   @Input() set activated(v: boolean) {
   }
   constructor(srv: DarksocksService) {
@@ -33,7 +34,13 @@ export class RulesComponent implements OnInit {
     var m = this.srv.saveUserRules(this.rules);
     if (m != "OK") {
       this.message = m;
+    } else {
+      this.showMessage("saved")
     }
     this.reload()
+  }
+  showMessage(m: string) {
+    this.message = m;
+    setTimeout(() => this.message = "", this.dimissDelay);
   }
 }
