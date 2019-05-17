@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/darksocks/darksocks/ds"
@@ -207,6 +208,7 @@ func startClient(c string) (err error) {
 	clientConf = c
 	clientConfDir = filepath.Dir(clientConf)
 	ds.SetLogLevel(conf.LogLevel)
+	ds.InfoLog("Client using config from %v", c)
 	client = ds.NewClient(ds.DefaultBufferSize, conf)
 	proxyServer = ds.NewSocksProxy()
 	proxyServer.Dialer = func(target string, raw io.ReadWriteCloser) (sid uint64, err error) {
@@ -243,18 +245,30 @@ func startClient(c string) (err error) {
 	}
 	changeProxyMode(conf.Mode)
 	// writeRuntimeVar()
+	wait := sync.WaitGroup{}
 	if managerServer != nil {
+		wait.Add(1)
 		ds.InfoLog("Client start web server on %v", managerListener.Addr())
-		go managerServer.Serve(managerListener)
+		go func() {
+			xerr := managerServer.Serve(managerListener)
+			ds.WarnLog("Client the web server on %v is stopped by %v", managerListener.Addr(), xerr)
+			wait.Done()
+		}()
 	}
 	if len(conf.HTTPAddr) > 0 {
-		go runPrivoxy(conf.HTTPAddr)
+		wait.Add(1)
+		go func() {
+			xerr := runPrivoxy(conf.HTTPAddr)
+			ds.WarnLog("Client the privoxy on %v is stopped by %v", conf.HTTPAddr, xerr)
+			wait.Done()
+		}()
 	}
 	go handlerClientKill()
 	proxyServer.Run()
 	ds.InfoLog("Client all listener is stopped")
 	changeProxyMode("manual")
 	// clearRuntimeVar()
+	wait.Wait()
 	return
 }
 
@@ -273,8 +287,7 @@ func stopClient() {
 
 func handlerClientKill() {
 	c := make(chan os.Signal, 1000)
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, os.Kill)
+	signal.Notify(c)
 	<-c
 	stopClient()
 }
@@ -430,9 +443,5 @@ func runPrivoxy(httpAddr string) (err error) {
 		return
 	}
 	err = runPrivoxyNative(confFile)
-	if err != nil {
-		ds.WarnLog("Client run privoxy fail with %v", err)
-		return
-	}
 	return
 }

@@ -3,36 +3,47 @@ set -e
 pkg_ver=0.1.0
 pkg_osx(){
     rm -rf dist/
-    rm -rf "out/Dark Socks-darwin-x64-$pkg_ver"
+    rm -rf out/darksocks-darwin-x64-$pkg_ver
     rm -rf darksocks
     7z x ../build/darksocks-$pkg_ver-Darwin.zip
     npm run pack-osx
     cd out
-    # plutil -insert LSUIElement -bool true Dark Socks-darwin-x64/Dark Socks.app/Contents/Info.plist
-    mv "Dark Socks-darwin-x64" "Dark Socks-darwin-x64-$pkg_ver"
-    7z a -r "Dark Socks-darwin-x64-$pkg_ver.zip" "Dark Socks-darwin-x64-$pkg_ver" -x!*.ts -x!*.map -x!*.h -x!*.m -x!*.md -x!*.scss
+    # plutil -insert LSUIElement -bool true darksocks-darwin-x64/darksocks.app/Contents/Info.plist
+    mv darksocks-darwin-x64 darksocks-darwin-x64-$pkg_ver
+    7z a -r darksocks-darwin-x64-$pkg_ver.zip darksocks-darwin-x64-$pkg_ver -x!*.ts -x!*.map -x!*.h -x!*.m -x!*.md -x!*.scss
     cd ../
 }
 pkg_linux(){
     rm -rf dist/
-    rm -rf "out/Dark Socks-linux-x64-$pkg_ver"
+    rm -rf out/darksocks-linux-x64-$pkg_ver
     rm -rf darksocks
     7z x ../build/darksocks-$pkg_ver-Linux.zip
     npm run pack-linux
     cd out
-    mv "Dark Socks-linux-x64 Dark Socks-linux-x64-$pkg_ver"
-    7z a -r "Dark Socks-linux-x64-$pkg_ver.zip" "Dark Socks-linux-x64-$pkg_ver"
+    mv darksocks-linux-x64 darksocks-linux-x64-$pkg_ver
+    7z a -r darksocks-linux-x64-$pkg_ver.zip darksocks-linux-x64-$pkg_ver
     cd ../
 }
 pkg_win(){
     rm -rf dist/
-    rm -rf "out/Dark Socks-win32-ia32-$pkg_ver"
+    rm -rf out/darksocks-win32-ia32-$pkg_ver
     rm -rf darksocks
     7z x ../build/darksocks-$pkg_ver-Win-386.zip
     npm run pack-win
     cd out
-    mv Dark "Socks-win32-ia32 Dark Socks-win32-ia32-$pkg_ver"
-    7z a -r "Dark Socks-win32-ia32-$pkg_ver.zip" "Dark Socks-win32-ia32-$pkg_ver"
+    mv darksocks-win32-ia32 darksocks-win32-ia32-$pkg_ver
+    7z a -r darksocks-win32-ia32-$pkg_ver.zip darksocks-win32-ia32-$pkg_ver -x!*.ts -x!*.map -x!*.h -x!*.m -x!*.md -x!*.scss
+    cd ../
+}
+pkg_win64(){
+    rm -rf dist/
+    rm -rf out/darksocks-win32-x64-$pkg_ver
+    rm -rf darksocks
+    7z x ../build/darksocks-$pkg_ver-Win-amd64.zip
+    npm run pack-win64
+    cd out
+    mv darksocks-win32-x64 darksocks-win32-x64-$pkg_ver
+    7z a -r darksocks-win32-x64-$pkg_ver.zip darksocks-win32-x64-$pkg_ver -x!*.ts -x!*.map -x!*.h -x!*.m -x!*.md -x!*.scss
     cd ../
 }
 
@@ -45,6 +56,9 @@ linux)
 ;;
 win)
     pkg_win
+;;
+win64)
+    pkg_win64
 ;;
 all)
     rm -rf out

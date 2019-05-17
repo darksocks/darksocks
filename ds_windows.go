@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"syscall"
 )
 
 func changeProxyModeNative(args ...string) (message string, err error) {
@@ -30,7 +31,10 @@ var privoxyRunner *exec.Cmd
 
 func runPrivoxyNative(conf string) (err error) {
 	var runner = filepath.Join(execDir(), "privoxy.exe")
-	privoxyRunner = exec.Command(runner, "--no-daemon", conf)
+	privoxyRunner = exec.Command(runner, conf)
+	privoxyRunner.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow: true,
+	}
 	privoxyRunner.Stderr = os.Stdout
 	privoxyRunner.Stdout = os.Stderr
 	err = privoxyRunner.Start()

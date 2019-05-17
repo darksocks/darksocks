@@ -77,6 +77,12 @@ export class ConfComponent implements OnInit {
     }
   }
   save() {
+    if (this.server.name || this.server.addr || this.server.username || this.server.password) {
+      this.add()
+      if (this.showError) {
+        return
+      }
+    }
     let c = Object.assign({}, this.conf)
     if (c.log) {
       c.log = parseInt(c.log)

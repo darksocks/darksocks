@@ -98,7 +98,11 @@ class DarkSocks {
         }
         Log.info("darksocks is stopping")
         this.restarting = false
-        this.runner.kill()
+        if (process.platform === "win32") {
+            spawn("taskkill", ["/T", "/F", "/PID", this.runner.pid])
+        } else {
+            this.runner.kill()
+        }
         return "OK"
     }
     public restart() {
@@ -202,6 +206,7 @@ export interface DarkSocksHandler {
 
 let darksocks = new DarkSocks()
 let logLevel = "info"
+let quiting = false
 
 function initial() {
     if (process.argv.length > 2) {
@@ -291,6 +296,10 @@ function initial() {
             }
         },
         onStatus: (s) => {
+            if (s == "Stopped" && quiting) {
+                app.quit()
+                return;
+            }
             if (mainWindow) {
                 mainWindow.webContents.send("status", s)
             }
@@ -298,10 +307,23 @@ function initial() {
             Log.info("darksocks status change to ", s)
             if (s == "Running") {
                 tray.setImage(__dirname + '/view/assets/running@4x.png')
-                app.dock.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_running.png'))
             } else {
                 tray.setImage(__dirname + '/view/assets/stopped@4x.png')
-                app.dock.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_stopped.png'))
+            }
+            if (process.platform === "win32") {
+                if (mainWindow) {
+                    if (s == "Running") {
+                        mainWindow.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_running.png'))
+                    } else {
+                        mainWindow.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_stopped.png'))
+                    }
+                }
+            } else if (process.platform === "darwin") {
+                if (s == "Running") {
+                    app.dock.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_running.png'))
+                } else {
+                    app.dock.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_stopped.png'))
+                }
             }
         }
     }
@@ -367,7 +389,9 @@ function initial() {
     ]
     const menu = Menu.buildFromTemplate(template)
     Menu.setApplicationMenu(menu)
-    app.dock.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_stopped.png'))
+    if (process.platform === "darwin") {
+        app.dock.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_stopped.png'))
+    }
 }
 
 let mainWindow: BrowserWindow
@@ -385,8 +409,16 @@ function createWindow() {
     if (logLevel == "debug") {
         mainWindow.webContents.openDevTools()
     }
+    if (process.platform === "win32") {
+        if (darksocks.status == "Running") {
+            mainWindow.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_running.png'))
+        } else {
+            mainWindow.setIcon(nativeImage.createFromPath(__dirname + '/view/assets/dock_stopped.png'))
+        }
+    } else if (process.platform === "darwin") {
+        app.dock.show()
+    }
     mainWindow.loadFile(`dist/view/index.html`)
-    app.dock.show()
 }
 
 app.on('ready', () => {
@@ -396,7 +428,9 @@ app.on('ready', () => {
 
 app.on('window-all-closed', () => {
     Log.info("all window is closed")
-    app.dock.hide()
+    if (process.platform === "darwin") {
+        app.dock.hide()
+    }
 })
 
 app.on('activate', () => {
@@ -406,13 +440,11 @@ app.on('activate', () => {
 })
 
 app.on("before-quit", (e) => {
-    try {
-        darksocks.handler = {
-            onLog: (m) => { },
-            onStatus: (s) => { }
-        };
-        darksocks.stop()
-    } catch (e) {
+    if (darksocks.status == "Stopped") {
+        return;
     }
+    quiting = true;
+    darksocks.stop()
+    e.preventDefault();
 });
 
