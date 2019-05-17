@@ -33,4 +33,18 @@ export class DarksocksService {
   public loadStatus() {
     return ipcRenderer.sendSync("loadStatus")
   }
+  public loadUserRules() {
+    return ipcRenderer.sendSync("loadUserRules")
+  }
+  public saveUserRules(rules) {
+    return ipcRenderer.sendSync("saveUserRules", rules)
+  }
+  public async updateGfwList() {
+    ipcRenderer.send("updateGfwList")
+    return new Promise<string>((resolve) => {
+      ipcRenderer.on('updateGfwListDone', (e, m) => {
+        resolve(m);
+      })
+    })
+  }
 }

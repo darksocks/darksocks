@@ -5,7 +5,7 @@ import * as log4js from "log4js"
 import * as os from "os"
 import * as fs from "fs"
 import * as http from "http"
-import * as assert from "assert"
+import * as https from "https"
 import { spawn } from "child_process";
 const Log = log4js.getLogger("main")
 
@@ -13,7 +13,7 @@ const homedir = os.homedir();
 
 function httpGet(url): Promise<string> {
     return new Promise<string>((resolve, reject) => {
-        http.get(url, (res) => {
+        var callback = (res) => {
             const { statusCode } = res;
             if (statusCode !== 200) {
                 res.resume();
@@ -24,7 +24,12 @@ function httpGet(url): Promise<string> {
             let rawData = '';
             res.on('data', (chunk) => { rawData += chunk; });
             res.on('end', () => { resolve(rawData) });
-        }).on('error', (e) => { reject(e) });
+        }
+        if (url.indexOf("https") < 0) {
+            http.get(url, callback).on('error', (e) => { reject(e) });
+        } else {
+            https.get(url, callback).on('error', (e) => { reject(e) });
+        }
     })
 }
 
@@ -32,6 +37,8 @@ class DarkSocks {
     public homeDir = homedir;
     public workingFile: string = os.homedir() + "/.darksocks/darksocks.json";
     public runtimeFile: string = os.homedir() + "/.darksocks/runtime.json";
+    public userRuleFile: string = os.homedir() + "/.darksocks/user_rules.txt";
+    public gfwListFile: string = os.homedir() + "/.darksocks/gfwlist.txt";
     public handler: DarkSocksHandler
     public status: string = "Stopped";
     private runner: any;
@@ -90,6 +97,7 @@ class DarkSocks {
             return "Stopped"
         }
         Log.info("darksocks is stopping")
+        this.restarting = false
         this.runner.kill()
         return "OK"
     }
@@ -101,6 +109,19 @@ class DarkSocks {
         this.restarting = true
         this.stop()
         return "OK"
+    }
+    public checkConf(): string {
+        if (fs.existsSync(this.workingFile)) {
+            return "OK"
+        }
+        var conf = {
+            "manager_addr": "127.0.0.1:1101",
+            "socks_addr": "127.0.0.1:1105",
+            "http_addr": "127.0.0.1:1103",
+            "mode": "auto",
+            "servers": [],
+        }
+        return this.saveConf(conf)
     }
     public loadConf(): any {
         Log.info(`load configure from ${this.workingFile}`)
@@ -127,6 +148,24 @@ class DarkSocks {
             return "" + e;
         }
     }
+    public loadUserRules(): string {
+        Log.info(`load user rules from ${this.userRuleFile}`)
+        try {
+            var data = fs.readFileSync(this.userRuleFile)
+            return data.toString()
+        } catch (e) {
+            return ""
+        }
+    }
+    public saveUserRules(data): string {
+        Log.info(`save user rules to ${this.userRuleFile}`)
+        try {
+            fs.writeFileSync(this.userRuleFile, data);
+            return "OK"
+        } catch (e) {
+            return "" + e;
+        }
+    }
     public enableServer(index: number) {
         var conf = this.loadConf();
         for (var i = 0; i < conf.servers.length; i++) {
@@ -140,6 +179,17 @@ class DarkSocks {
             return JSON.parse(data.toString());
         } catch (e) {
             return {};
+        }
+    }
+    public async updateGfwList() {
+        Log.info(`start update gfw list to ${this.gfwListFile}`)
+        try {
+            var conf = this.loadConf()
+            var data = await httpGet("https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt")
+            fs.writeFileSync(this.gfwListFile, data)
+            return "OK"
+        } catch (e) {
+            return "" + e;
         }
     }
 }
@@ -165,14 +215,9 @@ function initial() {
             default: { appenders: ['ruleConsole'], level: logLevel }
         },
     });
+    darksocks.checkConf()
     let tray = new Tray(__dirname + '/view/assets/stopped@4x.png')
     tray.setToolTip('This is DarkSocks')
-    function callOpen(f: string) {
-    }
-    function clickMenu(menuItem: MenuItem, browserWindow: BrowserWindow, event: Event) {
-        let menu = menuItem as any;
-        callOpen(menu.id)
-    }
     function reloadMenu() {
         Log.info("reloading menu")
         let menus: MenuItemConstructorOptions[] = []
@@ -210,7 +255,7 @@ function initial() {
                     click: (m) => {
                         darksocks.enableServer(parseInt((m as any).id.replace("server-", "")))
                         if (mainWindow) {
-                            mainWindow.webContents.send("change-server","")
+                            mainWindow.webContents.send("change-server", "")
                         }
                         darksocks.restart()
                         reloadMenu()
@@ -221,7 +266,7 @@ function initial() {
         menus.push(
             { type: 'separator' },
             {
-                label: 'Show',
+                label: 'Preference',
                 type: 'normal',
                 click: () => {
                     if (mainWindow) {
@@ -244,7 +289,6 @@ function initial() {
             if (mainWindow) {
                 mainWindow.webContents.send("log", m)
             }
-            // console.log(m.trim())
         },
         onStatus: (s) => {
             if (mainWindow) {
@@ -288,6 +332,15 @@ function initial() {
         }
         e.returnValue = "OK"
     });
+    ipcMain.on("loadUserRules", (e) => {
+        e.returnValue = darksocks.loadUserRules()
+    });
+    ipcMain.on("saveUserRules", (e, args) => {
+        e.returnValue = darksocks.saveUserRules(args)
+    });
+    ipcMain.on("updateGfwList", async (e) => {
+        e.sender.send("updateGfwListDone", await darksocks.updateGfwList())
+    })
     reloadMenu()
     const template: MenuItemConstructorOptions[] = [
         {

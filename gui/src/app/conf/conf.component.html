@@ -88,6 +88,8 @@
     <div class="app-conf-save">
       <span [hidden]="!message">{{message}}</span>
       &nbsp;&nbsp;
+      <button #ugfw type="button" class="btn btn-secondary" (click)="updateGfwList()">UpdateGfwList</button>
+      &nbsp;&nbsp;
       <button type="button" class="btn btn-secondary" (click)="reload()">Reload</button>
       &nbsp;&nbsp;
       <button type="button" class="btn btn-info" (click)="save()">Save</button>

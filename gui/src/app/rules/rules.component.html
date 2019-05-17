@@ -1,0 +1,13 @@
+<div class="app-rules">
+  <textarea class="app-rules-editor" [(ngModel)]="rules">
+  </textarea>
+  <div>
+    <div class="app-rules-save">
+      <span [hidden]="!message">{{message}}</span>
+      &nbsp;&nbsp;
+      <button type="button" class="btn btn-secondary" (click)="reload()">Reload</button>
+      &nbsp;&nbsp;
+      <button type="button" class="btn btn-info" (click)="save()">Save</button>
+    </div>
+  </div>
+</div>

@@ -1,26 +1,26 @@
-
 .app-header {
     -webkit-user-select: none;
     -webkit-app-region: drag;
     padding-left: 8px;
     padding-top: 8px;
 }
+
 .app-header button {
     -webkit-app-region: no-drag;
 }
 
-.app-title{
+.app-title {
     margin: 0px 0px 0px 6px;
     display: inline-block;
     font-size: 24px;
     padding: 0px;
 }
 
-.app-tool-right{
+.app-tool-right {
     float: right;
 }
 
-.app-tool-close{
+.app-tool-close {
     width: 30px;
     height: 30px;
 }

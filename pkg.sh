@@ -26,6 +26,7 @@ cp -f dsuser.json $srv_out
 cp -f gfwlist.txt $srv_out
 cp -f abp.js $srv_out
 cp -f networksetup-osx.sh $srv_out
+cp -f privoxy-`uname` $srv_out/privoxy
 
 ###
 cd $output

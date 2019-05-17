@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, Input, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { DarksocksService } from '../darksocks.service';
 
 @Component({
@@ -14,6 +14,7 @@ export class ConfComponent implements OnInit {
   message: string = ""
   dimissDelay: number = 4000
   showError: boolean = false
+  @ViewChild("ugfw") ugfw: ElementRef
   @Input() set activated(v: boolean) {
   }
   constructor(srv: DarksocksService, ref: ChangeDetectorRef) {
@@ -86,6 +87,19 @@ export class ConfComponent implements OnInit {
       this.showMessage("saved")
     } else {
       this.showMessage("save fail by " + res)
+    }
+  }
+  async updateGfwList() {
+    if (this.ugfw.nativeElement.innerHTML == "updating") {
+      return;
+    }
+    this.ugfw.nativeElement.innerHTML = "updating"
+    var m = await this.srv.updateGfwList()
+    this.ugfw.nativeElement.innerHTML = "UpdateGfwList"
+    if (m == "OK") {
+      this.message = "Update GFW list success"
+    } else {
+      this.message = m
     }
   }
   showMessage(m: string) {

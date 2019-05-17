@@ -7,6 +7,7 @@ import { NgSelectModule } from '@ng-select/ng-select';
 import { AngularDraggableModule } from 'angular2-draggable';
 import { LogComponent } from './log/log.component';
 import { ConfComponent } from './conf/conf.component';
+import { RulesComponent } from './rules/rules.component';
 
 // @Injectable()
 // class GlobalErrorHandler implements ErrorHandler {
@@ -24,6 +25,7 @@ import { ConfComponent } from './conf/conf.component';
     ConfComponent,
     LogComponent,
     ConfComponent,
+    RulesComponent,
   ],
   imports: [
     FormsModule,
