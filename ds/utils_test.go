@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"net"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"golang.org/x/net/websocket"
 )
 
 func TestPipeConn(t *testing.T) {
@@ -35,6 +39,11 @@ func TestPipeConn(t *testing.T) {
 	time.Sleep(time.Millisecond)
 	a.Close()
 	wait.Wait()
+	//
+	a.SetDeadline(time.Now())
+	a.SetReadDeadline(time.Now())
+	a.SetWriteDeadline(time.Now())
+	a.LocalAddr().Network()
 	//
 	//test error
 	var callc = 0
@@ -84,8 +93,46 @@ func TestLog(t *testing.T) {
 	InfoLog("info")
 	WarnLog("warn")
 	ErrorLog("error")
+	//
+	SetLogLevel(1)
+	ErrorLog("error")
 }
 
 func TestSHA(t *testing.T) {
 	fmt.Println(SHA1([]byte("123")))
+}
+
+func TestStringConn(t *testing.T) {
+	{ //test string
+		wsRaw := &websocket.Conn{}
+		fmt.Printf("%v\n", NewStringConn(wsRaw))
+		netRaw := &net.TCPConn{}
+		fmt.Printf("%v\n", NewStringConn(netRaw))
+		fmt.Printf("%v\n", NewStringConn(os.Stdout))
+		conn := NewStringConn(os.Stdout)
+		conn.Name = "stdout"
+		fmt.Printf("%v\n", conn)
+	}
+}
+
+func TestTCPKeepAliveListener(t *testing.T) {
+	wait := make(chan int, 1)
+	listner, _ := net.Listen("tcp", ":0")
+	l := &TCPKeepAliveListener{TCPListener: listner.(*net.TCPListener)}
+	go func() {
+		c, err := l.Accept()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		ioutil.ReadAll(c)
+		wait <- 1
+	}()
+	conn, err := net.Dial("tcp", listner.Addr().String())
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	conn.Close()
+	<-wait
 }

@@ -23,7 +23,7 @@ func proxyDial(t *testing.T, remote string, port uint16) {
 	if err != nil {
 		return
 	}
-	err = fullBuf(proxyReader, buf, 2, nil)
+	err = fullBuf(proxyReader, buf, 2)
 	if err != nil {
 		return
 	}
@@ -59,7 +59,7 @@ func proxyDial2(t *testing.T, remote string, port uint16) {
 	if err != nil {
 		return
 	}
-	err = fullBuf(proxyReader, buf, 2, nil)
+	err = fullBuf(proxyReader, buf, 2)
 	if err != nil {
 		return
 	}
@@ -95,7 +95,7 @@ func proxyDialIP(t *testing.T, bys []byte, port uint16) {
 	if err != nil {
 		return
 	}
-	err = fullBuf(proxyReader, buf, 2, nil)
+	err = fullBuf(proxyReader, buf, 2)
 	if err != nil {
 		return
 	}
@@ -130,7 +130,7 @@ func proxyDialIPv6(t *testing.T, bys []byte, port uint16) {
 	if err != nil {
 		return
 	}
-	err = fullBuf(proxyReader, buf, 2, nil)
+	err = fullBuf(proxyReader, buf, 2)
 	if err != nil {
 		return
 	}
@@ -236,4 +236,23 @@ func TestSocksProxy(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 	proxy.Close()
+}
+
+func TestFullBuf(t *testing.T) {
+	wait := make(chan int, 1)
+	r, w, _ := CreatePipeConn()
+	go func() {
+		buf := make([]byte, 100)
+		fullBuf(r, buf, 5)
+		fmt.Println("readed", string(buf[:5]))
+		wait <- 1
+		fullBuf(r, buf, 5)
+		wait <- 1
+	}()
+	w.Write([]byte("abc"))
+	time.Sleep(time.Millisecond)
+	w.Write([]byte("12"))
+	<-wait
+	w.Close()
+	<-wait
 }

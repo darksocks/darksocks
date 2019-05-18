@@ -42,7 +42,7 @@ func startServer(c string) (err error) {
 	serverConfDir = filepath.Dir(serverConf)
 	ds.SetLogLevel(conf.LogLevel)
 	userFile := conf.UserFile
-	if !filepath.IsAbs(userFile) {
+	if len(userFile) > 0 && !filepath.IsAbs(userFile) {
 		userFile, _ = filepath.Abs(filepath.Join(serverConfDir, userFile))
 	}
 	auth := ds.NewJSONFileAuth(conf.Manager, userFile)
@@ -139,7 +139,7 @@ func stopServer() {
 
 func parseListenAddr(addr string) (addrs []string, err error) {
 	parts := strings.SplitN(addr, ":", 2)
-	if len(parts) < 1 {
+	if len(parts) < 2 {
 		err = fmt.Errorf("invalid uri")
 		return
 	}
@@ -161,10 +161,12 @@ func parseListenAddr(addr string) (addrs []string, err error) {
 	return
 }
 
+var serverKillSignal chan os.Signal
+
 func handlerServerKill() {
-	c := make(chan os.Signal, 1000)
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, os.Kill)
-	<-c
+	serverKillSignal = make(chan os.Signal, 1000)
+	signal.Notify(serverKillSignal, os.Kill, os.Interrupt)
+	v := <-serverKillSignal
+	ds.WarnLog("Server receive kill signal:%v", v)
 	stopServer()
 }

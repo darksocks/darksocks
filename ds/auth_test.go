@@ -142,4 +142,9 @@ func TestJSONFileAuth(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	err = auth.readAuthFile()
+	if err == nil {
+		t.Error(err)
+		return
+	}
 }

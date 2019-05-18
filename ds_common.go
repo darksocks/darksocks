@@ -6,12 +6,14 @@ import (
 	"path/filepath"
 )
 
-func workDir() (dir string) {
+var workDir = workDir_()
+
+func workDir_() (dir string) {
 	home, _ := os.UserHomeDir()
 	dir = filepath.Join(home, ".darksocks")
-	if _, err := os.Stat(dir); err != nil {
-		os.MkdirAll(dir, os.ModePerm)
-	}
+	// if _, err := os.Stat(dir); err != nil {
+	os.MkdirAll(dir, os.ModePerm)
+	// }
 	return
 }
 

@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +24,10 @@ var client *ds.Client
 var proxyServer *ds.SocksProxy
 var managerServer *http.Server
 var managerListener net.Listener
+var abpPath = filepath.Join(execDir(), "abp.js")
+var gfwListPath = filepath.Join(execDir(), "gfwlist.txt")
+var userRulesPath = filepath.Join(execDir(), "user_rules.txt")
+var gfwListURL = "https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt"
 
 //ClientServerConf is pojo for dark socks server configure
 type ClientServerConf struct {
@@ -66,11 +69,11 @@ func (c *ClientConf) Dial(remote string) (raw io.ReadWriteCloser, err error) {
 				conn := ds.NewStringConn(raw)
 				conn.Name = conf.Name
 				raw = conn
+				break
 			} else {
 				ds.WarnLog("Client connect one channel fail with %v", err)
 			}
 		}
-		break
 	}
 	if raw == nil {
 		err = fmt.Errorf("server not found")
@@ -82,7 +85,7 @@ func (c *ClientConf) Dial(remote string) (raw io.ReadWriteCloser, err error) {
 func (c *ClientConf) PAC(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "application/x-javascript")
 	//
-	abpRaw, err := ioutil.ReadFile(filepath.Join(execDir(), "abp.js"))
+	abpRaw, err := ioutil.ReadFile(abpPath)
 	if err != nil {
 		ds.ErrorLog("PAC read apb.js fail with %v", err)
 		res.WriteHeader(500)
@@ -149,51 +152,8 @@ func (c *ClientConf) UpdateGfwlist(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%v", "ok")
 }
 
-//LoadConf is http handler to load configure
-func (c *ClientConf) LoadConf(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	data, _ := json.Marshal(c)
-	w.Write(data)
-}
-
-//UpdateConf is http handler to update configure
-func (c *ClientConf) UpdateConf(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	data, _ := ioutil.ReadAll(r.Body)
-	err := json.Unmarshal(data, c)
-	if err != nil {
-		w.WriteHeader(500)
-		fmt.Fprintf(w, "%v", err)
-		return
-	}
-	err = ds.WriteJSON(clientConf, data)
-	if err != nil {
-		w.WriteHeader(500)
-		fmt.Fprintf(w, "%v", err)
-		return
-	}
-	fmt.Fprintf(w, "%v", "ok")
-}
-
-//EnableServer is http handler to enable server by index
-func (c *ClientConf) EnableServer(w http.ResponseWriter, r *http.Request) {
-	index, err := strconv.ParseInt(r.URL.Query().Get("index"), 10, 32)
-	if err != nil {
-		fmt.Fprintf(w, "parset index argment")
-		return
-	}
-	if int(index) >= len(c.Servers) {
-		fmt.Fprintf(w, "index invalid")
-		return
-	}
-	for i, server := range c.Servers {
-		server.Enable = i == int(index)
-	}
-	fmt.Fprintf(w, "%v", "ok")
-}
-
 func startClient(c string) (err error) {
-	conf := &ClientConf{}
+	conf := &ClientConf{Mode: "auto"}
 	err = ds.ReadJSON(c, &conf)
 	if err != nil {
 		ds.ErrorLog("Client read configure fail with %v", err)
@@ -207,6 +167,7 @@ func startClient(c string) (err error) {
 	}
 	clientConf = c
 	clientConfDir = filepath.Dir(clientConf)
+	os.MkdirAll(workDir, os.ModePerm)
 	ds.SetLogLevel(conf.LogLevel)
 	ds.InfoLog("Client using config from %v", c)
 	client = ds.NewClient(ds.DefaultBufferSize, conf)
@@ -220,9 +181,6 @@ func startClient(c string) (err error) {
 		mux.HandleFunc("/pac.js", conf.PAC)
 		mux.HandleFunc("/changeProxyMode", conf.ChangeProxyMode)
 		mux.HandleFunc("/updateGfwlist", conf.UpdateGfwlist)
-		mux.HandleFunc("/loadConf", conf.LoadConf)
-		mux.HandleFunc("/updateConf", conf.UpdateConf)
-		mux.HandleFunc("/enableServer", conf.EnableServer)
 		var listener net.Listener
 		managerServer = &http.Server{Addr: conf.ManagerAddr, Handler: mux}
 		listener, err = net.Listen("tcp", conf.ManagerAddr)
@@ -233,9 +191,6 @@ func startClient(c string) (err error) {
 		}
 		managerServer.Addr = listener.Addr().String()
 		managerListener = &ds.TCPKeepAliveListener{TCPListener: listener.(*net.TCPListener)}
-	}
-	if len(conf.Mode) < 1 {
-		conf.Mode = "auto"
 	}
 	err = proxyServer.Listen(conf.SocksAddr)
 	if err != nil {
@@ -267,7 +222,6 @@ func startClient(c string) (err error) {
 	proxyServer.Run()
 	ds.InfoLog("Client all listener is stopped")
 	changeProxyMode("manual")
-	// clearRuntimeVar()
 	wait.Wait()
 	return
 }
@@ -283,12 +237,18 @@ func stopClient() {
 	if privoxyRunner != nil && privoxyRunner.Process != nil {
 		privoxyRunner.Process.Kill()
 	}
+	if client != nil {
+		client.Close()
+	}
 }
 
+var clientKillSignal chan os.Signal
+
 func handlerClientKill() {
-	c := make(chan os.Signal, 1000)
-	signal.Notify(c)
-	<-c
+	clientKillSignal = make(chan os.Signal, 1000)
+	signal.Notify(clientKillSignal, os.Kill, os.Interrupt)
+	v := <-clientKillSignal
+	ds.WarnLog("Clien receive kill signal:%v", v)
 	stopClient()
 }
 
@@ -319,10 +279,10 @@ func changeProxyMode(mode string) (message string, err error) {
 }
 
 func readGfwlist() (rules []string, err error) {
-	gfwFile := filepath.Join(workDir(), "gfwlist.txt")
+	gfwFile := filepath.Join(workDir, "gfwlist.txt")
 	gfwRaw, err := ioutil.ReadFile(gfwFile)
 	if err != nil {
-		gfwFile = filepath.Join(execDir(), "gfwlist.txt")
+		gfwFile = gfwListPath
 		gfwRaw, err = ioutil.ReadFile(gfwFile)
 		if err != nil {
 			err = fmt.Errorf("read gfwlist.txt fail with %v", err)
@@ -345,10 +305,10 @@ func readGfwlist() (rules []string, err error) {
 }
 
 func readUserRules() (rules []string, err error) {
-	gfwFile := filepath.Join(workDir(), "user_rules.txt")
+	gfwFile := filepath.Join(workDir, "user_rules.txt")
 	gfwData, err := ioutil.ReadFile(gfwFile)
 	if err != nil {
-		gfwFile = filepath.Join(execDir(), "user_rules.txt")
+		gfwFile = userRulesPath
 		gfwData, err = ioutil.ReadFile(gfwFile)
 		if err != nil {
 			err = fmt.Errorf("read gfwlist.txt fail with %v", err)
@@ -357,7 +317,8 @@ func readUserRules() (rules []string, err error) {
 	}
 	gfwRulesAll := strings.Split(string(gfwData), "\n")
 	for _, rule := range gfwRulesAll {
-		if strings.HasPrefix(rule, "--") || len(strings.TrimSpace(rule)) < 1 {
+		rule = strings.TrimSpace(rule)
+		if strings.HasPrefix(rule, "--") || strings.HasPrefix(rule, "!") || len(strings.TrimSpace(rule)) < 1 {
 			continue
 		}
 		rules = append(rules, rule)
@@ -366,38 +327,19 @@ func readUserRules() (rules []string, err error) {
 }
 
 func updateGfwlist() (err error) {
-	if client != nil {
+	if client == nil {
 		err = fmt.Errorf("proxy server is not started")
 		return
 	}
-	gfwData, err := client.HTTPGet("https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt")
+	gfwData, err := client.HTTPGet(gfwListURL)
 	if err != nil {
 		return
 	}
-	gfwFile := filepath.Join(workDir(), "gfwlist.txt")
+	os.MkdirAll(workDir, os.ModePerm)
+	gfwFile := filepath.Join(workDir, "gfwlist.txt")
 	err = ioutil.WriteFile(gfwFile, gfwData, os.ModePerm)
 	return
 }
-
-// func writeRuntimeVar() (err error) {
-// 	runtime := map[string]interface{}{}
-// 	if managerListener != nil {
-// 		parts := strings.SplitN(managerListener.Addr().String(), ":", -1)
-// 		runtime["manager_port"], _ = strconv.ParseInt(parts[len(parts)-1], 10, 64)
-// 	}
-// 	if proxyServer != nil {
-// 		parts := strings.SplitN(proxyServer.Addr().String(), ":", -1)
-// 		runtime["share_port"], _ = strconv.ParseInt(parts[len(parts)-1], 10, 64)
-// 	}
-// 	err = ds.WriteJSON(filepath.Join(workDir(), "runtime.json"), runtime)
-// 	return
-// }
-//
-// func clearRuntimeVar() (err error) {
-// 	runtime := map[string]interface{}{}
-// 	err = ds.WriteJSON(filepath.Join(workDir(), "runtime.json"), runtime)
-// 	return
-// }
 
 const (
 	//PrivoxyTmpl is privoxy template
@@ -436,7 +378,7 @@ func runPrivoxy(httpAddr string) (err error) {
 	proxyServerParts := strings.SplitN(proxyServer.Addr().String(), ":", -1)
 	socksAddr := fmt.Sprintf("127.0.0.1:%v", proxyServerParts[len(proxyServerParts)-1])
 	ds.InfoLog("Client start privoxy by listening http proxy on %v and forwarding to %v", httpAddr, socksAddr)
-	confFile := filepath.Join(workDir(), "privoxy.conf")
+	confFile := filepath.Join(workDir, "privoxy.conf")
 	err = writePrivoxyConf(confFile, httpAddr, socksAddr)
 	if err != nil {
 		ds.WarnLog("Client save privoxy config to %v fail with %v", confFile, err)

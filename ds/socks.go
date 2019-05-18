@@ -4,60 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sync/atomic"
-	"time"
 )
-
-//PendingConn is an implementation of io.ReadWriteCloser
-type PendingConn struct {
-	StringConn
-	Raw     io.ReadWriteCloser
-	pending uint32
-	wc      chan int
-}
-
-//NewPendingConn will return new endingConn
-func NewPendingConn(raw io.ReadWriteCloser) (conn *PendingConn) {
-	conn = &PendingConn{
-		Raw:     raw,
-		pending: 1,
-		wc:      make(chan int),
-	}
-	conn.StringConn.ReadWriteCloser = raw
-	return
-}
-
-//Start pending connection
-func (p *PendingConn) Start() {
-	if atomic.CompareAndSwapUint32(&p.pending, 1, 0) {
-		close(p.wc)
-	}
-}
-
-func (p *PendingConn) Write(b []byte) (n int, err error) {
-	if p.pending == 1 {
-		<-p.wc
-	}
-	n, err = p.Raw.Write(b)
-	return
-}
-
-func (p *PendingConn) Read(b []byte) (n int, err error) {
-	if p.pending == 1 {
-		<-p.wc
-	}
-	n, err = p.Raw.Read(b)
-	return
-}
-
-//Close pending connection.
-func (p *PendingConn) Close() (err error) {
-	if atomic.CompareAndSwapUint32(&p.pending, 1, 0) {
-		close(p.wc)
-	}
-	err = p.Raw.Close()
-	return
-}
 
 //SocksProxy is an implementation of socks5 proxy
 type SocksProxy struct {
@@ -110,7 +57,7 @@ func (s *SocksProxy) procConn(conn net.Conn) {
 	buf := make([]byte, 1024*64)
 	//
 	//Procedure method
-	err = fullBuf(conn, buf, 2, nil)
+	err = fullBuf(conn, buf, 2)
 	if err != nil {
 		return
 	}
@@ -118,7 +65,7 @@ func (s *SocksProxy) procConn(conn net.Conn) {
 		err = fmt.Errorf("only ver 0x05 is supported, but %x", buf[0])
 		return
 	}
-	err = fullBuf(conn, buf[2:], uint32(buf[1]), nil)
+	err = fullBuf(conn, buf[2:], uint32(buf[1]))
 	if err != nil {
 		return
 	}
@@ -128,7 +75,7 @@ func (s *SocksProxy) procConn(conn net.Conn) {
 	}
 	//
 	//Procedure request
-	err = fullBuf(conn, buf, 5, nil)
+	err = fullBuf(conn, buf, 5)
 	if err != nil {
 		return
 	}
@@ -139,14 +86,14 @@ func (s *SocksProxy) procConn(conn net.Conn) {
 	var uri string
 	switch buf[3] {
 	case 0x01:
-		err = fullBuf(conn, buf[5:], 5, nil)
+		err = fullBuf(conn, buf[5:], 5)
 		if err == nil {
 			remote := fmt.Sprintf("%v.%v.%v.%v", buf[4], buf[5], buf[6], buf[7])
 			port := uint16(buf[8])*256 + uint16(buf[9])
 			uri = fmt.Sprintf("%v:%v", remote, port)
 		}
 	case 0x03:
-		err = fullBuf(conn, buf[5:], uint32(buf[4]+2), nil)
+		err = fullBuf(conn, buf[5:], uint32(buf[4]+2))
 		if err == nil {
 			remote := string(buf[5 : buf[4]+5])
 			port := uint16(buf[buf[4]+5])*256 + uint16(buf[buf[4]+6])
@@ -176,16 +123,13 @@ func (s *SocksProxy) procConn(conn net.Conn) {
 	}
 }
 
-func fullBuf(r io.Reader, p []byte, length uint32, last *int64) error {
+func fullBuf(r io.Reader, p []byte, length uint32) error {
 	all := uint32(0)
 	buf := p[:length]
 	for {
 		readed, err := r.Read(buf)
 		if err != nil {
 			return err
-		}
-		if last != nil {
-			*last = time.Now().Local().UnixNano() / 1e6
 		}
 		all += uint32(readed)
 		if all < length {

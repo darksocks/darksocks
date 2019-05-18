@@ -18,8 +18,8 @@
             "password": "123"
         }
     ],
-    "socks_addr": "0.0.0.0:1189",
-    "http_addr": "0.0.0.0:1188",
-    "manager_addr": "0.0.0.0:1180",
+    "socks_addr": "0.0.0.0:1105",
+    "http_addr": "0.0.0.0:1103",
+    "manager_addr": "0.0.0.0:1101",
     "mode": "auto"
 }

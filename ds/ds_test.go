@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -150,6 +153,7 @@ func TestConn(t *testing.T) {
 }
 
 func TestDarkSocket(t *testing.T) {
+	SetLogLevel(LogLevelDebug)
 	//
 	buf := make([]byte, 1024)
 	wait := sync.WaitGroup{}
@@ -199,6 +203,44 @@ func TestDarkSocket(t *testing.T) {
 			return
 		}
 		//
+		serverRemote.Close()
+		time.Sleep(time.Millisecond)
+		serverChannel.Close()
+	}
+	{ //http process
+		//
+		httpServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "ok")
+		}))
+		serverChannel, clientChannel, _ := CreatePipeConn()
+		serverChannel.Alias, clientChannel.Alias = "ServerChannel", "ClientChannel"
+		serverConn, serverRemote, _ := CreatePipeConn()
+		serverConn.Alias, serverRemote.Alias = "ServerConn", "ServerRemote"
+		//
+		server := NewServer(256*1024, DialerF(func(remote string) (raw io.ReadWriteCloser, err error) {
+			addr := strings.TrimPrefix(httpServer.URL, "http://")
+			raw, err = net.Dial("tcp", addr)
+			DebugLog("test server dial to %v", addr)
+			return
+		}))
+		wait.Add(1)
+		go func() {
+			server.ProcConn(NewConn(serverChannel, server.BufferSize))
+			wait.Done()
+		}()
+		client := NewClient(256*1024, DialerF(func(remote string) (raw io.ReadWriteCloser, err error) {
+			raw = clientChannel
+			DebugLog("test client dial to %v success", remote)
+			return
+		}))
+		res, err := client.HTTPGet("http://xxxx")
+		if err != nil || string(res) != "ok" {
+			t.Error(err)
+			return
+		}
+		fmt.Println(err, string(res))
+		//
+		time.Sleep(time.Millisecond)
 		serverRemote.Close()
 		time.Sleep(time.Millisecond)
 		serverChannel.Close()

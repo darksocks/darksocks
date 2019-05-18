@@ -109,6 +109,7 @@ func (c *Conn) Close() (err error) {
 	if closer, ok := c.raw.(io.Closer); ok {
 		err = closer.Close()
 	}
+	c.Err = fmt.Errorf("closed")
 	return
 }
 
@@ -274,6 +275,16 @@ func NewClient(bufferSize int, dialer Dialer) (client *Client) {
 	return
 }
 
+//Close will close all proc connection
+func (c *Client) Close() (err error) {
+	c.connsLck.Lock()
+	for _, conn := range c.conns {
+		conn.Close()
+	}
+	c.connsLck.Unlock()
+	return
+}
+
 func (c *Client) httpDial(network, addr string) (conn net.Conn, err error) {
 	proxy, conn, err := CreatePipeConn()
 	if err == nil {
@@ -312,6 +323,7 @@ func (c *Client) pushConn(conn *Conn) {
 
 //ProcConn will start process proxy connection
 func (c *Client) ProcConn(raw io.ReadWriteCloser, target string) (err error) {
+	defer raw.Close()
 	conn, err := c.pullConn()
 	if err != nil {
 		return

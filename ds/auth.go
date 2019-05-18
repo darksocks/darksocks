@@ -23,7 +23,9 @@ func NewJSONFileAuth(adimUser map[string]string, filename string) (auth *JSONFil
 		normalUser: map[string]string{},
 		userLck:    sync.RWMutex{},
 	}
-	auth.readAuthFile()
+	if len(filename) > 0 {
+		auth.readAuthFile()
+	}
 	return
 }
 

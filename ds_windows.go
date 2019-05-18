@@ -28,10 +28,10 @@ func changeProxyModeNative(args ...string) (message string, err error) {
 }
 
 var privoxyRunner *exec.Cmd
+var privoxyPath = filepath.Join(execDir(), "privoxy.exe")
 
 func runPrivoxyNative(conf string) (err error) {
-	var runner = filepath.Join(execDir(), "privoxy.exe")
-	privoxyRunner = exec.Command(runner, conf)
+	privoxyRunner = exec.Command(privoxyPath, conf)
 	privoxyRunner.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow: true,
 	}

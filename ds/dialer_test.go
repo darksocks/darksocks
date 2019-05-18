@@ -12,6 +12,24 @@ import (
 )
 
 func TestWebsocketDialer(t *testing.T) {
+	{ //auth test
+		ts := httptest.NewServer(websocket.Handler(func(ws *websocket.Conn) {
+			io.Copy(ws, ws)
+		}))
+		wsurl := strings.Replace(ts.URL, "http://", "ws://", 1)
+		fmt.Println(wsurl)
+		dialer := WebsocketDialer("")
+		raw, err := dialer.Dial(wsurl + "?username=x&password=123")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		go func() {
+			io.Copy(os.Stdout, raw)
+		}()
+		fmt.Fprintf(raw, "data\n")
+		raw.Close()
+	}
 	{ //ws test
 		ts := httptest.NewServer(websocket.Handler(func(ws *websocket.Conn) {
 			io.Copy(ws, ws)

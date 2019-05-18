@@ -2,22 +2,45 @@ package main
 
 import (
 	"bufio"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/darksocks/darksocks/ds"
+
+	"golang.org/x/net/websocket"
 )
 
+func init() {
+	networksetupPath = "echo"
+	privoxyPath = "./privoxy"
+	abpPath = "./abp.js"
+	gfwListPath = "./gfwlist.txt"
+	userRulesPath = "./work/user_rules.txt"
+	workDir = "./work/"
+}
+
+var echoListner net.Listener
+
 func runEcho(listen string) (err error) {
-	listener, err := net.Listen("tcp", listen)
+	echoListner, err = net.Listen("tcp", listen)
 	if err != nil {
 		return
 	}
 	var conn net.Conn
 	for {
-		conn, err = listener.Accept()
+		conn, err = echoListner.Accept()
 		if err != nil {
 			break
 		}
@@ -29,29 +52,61 @@ func runEcho(listen string) (err error) {
 	return
 }
 
+func httpGet(format string, args ...interface{}) (data string, err error) {
+	resp, err := http.Get(fmt.Sprintf(format, args...))
+	if err != nil {
+		return
+	}
+	var d []byte
+	d, err = ioutil.ReadAll(resp.Body)
+	if err == nil {
+		data = string(d)
+	}
+	return
+}
+
 func TestDS(t *testing.T) {
+	os.RemoveAll(workDir)
 	exitf = func(code int) {}
-	go runEcho(":10331")
+	gfwMux := http.NewServeMux()
+	gfwMux.HandleFunc("/gfwlist.txt", func(w http.ResponseWriter, r *http.Request) {
+		writer := base64.NewEncoder(base64.StdEncoding, w)
+		fmt.Fprintf(writer, "%v", "!xx")
+		writer.Close()
+	})
+	gfwServer := httptest.NewServer(gfwMux)
+	wait := sync.WaitGroup{}
+	wait.Add(1)
 	go func() {
-		// time.Sleep(100 * time.Millisecond)
-		// stopServer()
+		err := runEcho(":10331")
+		wait.Done()
+		fmt.Println("echo done with", err)
 	}()
+	wait.Add(1)
 	go func() {
-		err := startServer("darksocks.json")
-		if err != nil {
-			t.Error(err)
-			return
-		}
+		err := startServer("darksocks-s.json")
+		wait.Done()
+		fmt.Println("server done with", err)
 	}()
+	wait.Add(1)
 	go func() {
-		err := startClient("darksocks.json")
-		if err != nil {
-			t.Error(err)
-			return
-		}
+		err := startClient("darksocks-c.json")
+		wait.Done()
+		fmt.Println("client done with", err)
 	}()
-	time.Sleep(time.Millisecond)
-	conn, err := proxyDial(t, "127.0.0.1:1089", "127.0.0.1", 10331)
+	time.Sleep(10 * time.Millisecond)
+	managerServerParts := strings.Split(managerServer.Addr, ":")
+	managerServer := fmt.Sprintf("http://127.0.0.1:%v", managerServerParts[len(managerServerParts)-1])
+	defer func() {
+		clientKillSignal <- os.Kill
+		time.Sleep(10 * time.Millisecond)
+		serverKillSignal <- os.Kill
+		time.Sleep(10 * time.Millisecond)
+		echoListner.Close()
+		wait.Wait()
+	}()
+	//
+	conn, err := proxyDial(t, "127.0.0.1:11105", "127.0.0.1", 10331)
 	if err != nil {
 		t.Error(err)
 		return
@@ -60,9 +115,157 @@ func TestDS(t *testing.T) {
 	buf := make([]byte, 1024)
 	readed, err := conn.Read(buf)
 	fmt.Println(string(buf[:readed]))
-	stopServer()
-	//
 	time.Sleep(time.Millisecond)
+	//
+	{ //test pac
+		pac, err := httpGet("%v/pac.js", managerServer)
+		if err != nil || !strings.Contains(pac, "SOCKS") {
+			t.Errorf("err:%v,%v", err, pac)
+			return
+		}
+		testUserRules := filepath.Join(workDir, "user_rules.txt")
+		ioutil.WriteFile(testUserRules, []byte(`
+		!Abc
+		||xxx.com
+		`), os.ModePerm)
+		pac, err = httpGet("%v/pac.js", managerServer)
+		if err != nil || !strings.Contains(pac, "SOCKS") {
+			t.Errorf("err:%v,%v", err, pac)
+			return
+		}
+		os.Remove(testUserRules)
+		//
+		abpPath = "xxx"
+		pac, err = httpGet("%v/pac.js", managerServer)
+		if err != nil || strings.Contains(pac, "SOCKS") {
+			t.Errorf("err:%v,%v", err, pac)
+			return
+		}
+		abpPath = "./abp.js"
+		//
+		gfwListPath = "xxxx"
+		pac, err = httpGet("%v/pac.js", managerServer)
+		if err != nil || strings.Contains(pac, "SOCKS") {
+			t.Errorf("err:%v,%v", err, pac)
+			return
+		}
+		testGfwList := filepath.Join(workDir, "gfwlist.txt")
+		ioutil.WriteFile(testGfwList, []byte("abc"), os.ModePerm)
+		pac, err = httpGet("%v/pac.js", managerServer)
+		if err != nil || strings.Contains(pac, "SOCKS") {
+			t.Errorf("err:%v,%v", err, pac)
+			return
+		}
+		os.Remove(testGfwList)
+		gfwListPath = "./gfwlist.txt"
+		//
+		userRulesPath = "xxxx"
+		pac, err = httpGet("%v/pac.js", managerServer)
+		if err != nil || !strings.Contains(pac, "SOCKS") {
+			t.Errorf("err:%v,%v", err, pac)
+			return
+		}
+		userRulesPath = "./user_rules.txt"
+		//
+		var old = proxyServer
+		proxyServer = nil
+		pac, err = httpGet("%v/pac.js", managerServer)
+		if err != nil || strings.Contains(pac, "SOCKS") {
+			t.Errorf("err:%v,%v", err, pac)
+			return
+		}
+		proxyServer = old
+	}
+	{ //update gfw
+		gfwListURL = gfwServer.URL + "/gfwlist.txt"
+		res, err := httpGet("%v/updateGfwlist", managerServer)
+		if err != nil || res != "ok" {
+			t.Errorf("err:%v,%v", err, res)
+			return
+		}
+		var old = client
+		client = nil
+		res, err = httpGet("%v/updateGfwlist", managerServer)
+		if err != nil || res == "ok" {
+			t.Errorf("err:%v,%v", err, res)
+			return
+		}
+		client = old
+		//
+		gfwListURL = "http://127.0.0.1:10/gfwlist.txt"
+		res, err = httpGet("%v/updateGfwlist", managerServer)
+		if err != nil || res == "ok" {
+			t.Errorf("err:%v,%v", err, res)
+			return
+		}
+		//
+		gfwListURL = gfwServer.URL + "/gfwlist.txt"
+	}
+	{ //change proxy mode
+		res, err := httpGet("%v/changeProxyMode?mode=auto", managerServer)
+		if err != nil || res != "ok" {
+			t.Errorf("err:%v,%v", err, res)
+			return
+		}
+		res, err = httpGet("%v/changeProxyMode?mode=global", managerServer)
+		if err != nil || res != "ok" {
+			t.Errorf("err:%v,%v", err, res)
+			return
+		}
+		res, err = httpGet("%v/changeProxyMode?mode=manual", managerServer)
+		if err != nil || res != "ok" {
+			t.Errorf("err:%v,%v", err, res)
+			return
+		}
+		//
+		var old = proxyServer
+		proxyServer = nil
+		res, err = httpGet("%v/changeProxyMode?mode=manual", managerServer)
+		if err != nil || res == "ok" {
+			t.Errorf("err:%v,%v", err, res)
+			return
+		}
+		proxyServer = old
+		//
+		networksetupPath = "exit"
+		res, err = httpGet("%v/changeProxyMode?mode=auto", managerServer)
+		if err != nil || res == "ok" {
+			t.Errorf("err:%v,%v", err, res)
+			return
+		}
+		networksetupPath = "echo"
+		//
+		clientConfOld := clientConf
+		clientConf = "/xxx"
+		res, err = httpGet("%v/changeProxyMode?mode=manual", managerServer)
+		if err != nil || res == "ok" {
+			t.Errorf("err:%v,%v", err, res)
+			return
+		}
+		clientConf = clientConfOld
+	}
+	{ //test websocket auth fail
+		raw, err := websocket.Dial("ws://127.0.0.1:5100/ds", "", "http://127.0.0.1:5100")
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		buf := make([]byte, 1000)
+		_, err = raw.Read(buf)
+		if err != io.EOF {
+			t.Error(err)
+			return
+		}
+	}
+	{ //test privoxy error
+		workDir = "/xxxxxxxx"
+		err := runPrivoxy("127.0.0.1:11100")
+		if err == nil {
+			t.Error(err)
+			return
+		}
+		workDir = "./work"
+	}
 }
 
 func proxyDial(t *testing.T, proxy, remote string, port uint16) (conn net.Conn, err error) {
@@ -117,4 +320,65 @@ func fullBuf(r io.Reader, p []byte, length uint32, last *int64) error {
 		}
 	}
 	return nil
+}
+
+func TestStartConfError(t *testing.T) {
+	exitf = func(code int) {}
+	os.RemoveAll("work")
+	os.Mkdir("work", os.ModePerm)
+	//
+	//
+	//not found
+	argConf = "work/none.json"
+	argRunServer = true
+	main()
+	//http addr error
+	ds.WriteJSON("work/s-http-addr-err.json", &ServerConf{
+		HTTPListenAddr: "xxx:1x",
+	})
+	argConf = "work/s-http-addr-err.json"
+	argRunServer = true
+	main()
+	//https addr error
+	ds.WriteJSON("work/s-https-addr-err.json", &ServerConf{
+		HTTPSListenAddr: "xxx:1x",
+	})
+	argConf = "work/s-https-addr-err.json"
+	argRunServer = true
+	main()
+	//
+	argRunServer = false
+	//
+	//
+	//not found
+	argConf = "work/none.json"
+	argRunClient = true
+	main()
+	//socks addr error
+	ds.WriteJSON("work/c-socks-addr-err.json", &ClientConf{})
+	argConf = "work/c-socks-addr-err.json"
+	argRunClient = true
+	main()
+	ds.WriteJSON("work/c-socks-addr-err.json", &ClientConf{
+		SocksAddr: ":xx",
+	})
+	argConf = "work/c-socks-addr-err.json"
+	argRunClient = true
+	main()
+	//manager addr error
+	ds.WriteJSON("work/c-manager-addr-err.json", &ClientConf{
+		SocksAddr:   ":0",
+		ManagerAddr: ":xx",
+	})
+	argConf = "work/c-manager-addr-err.json"
+	argRunClient = true
+	main()
+	//
+	argRunClient = false
+	//
+	//
+	//argument error
+	argRunClient = false
+	argRunServer = false
+	main()
 }

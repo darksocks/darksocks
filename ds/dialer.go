@@ -25,36 +25,6 @@ func (d DialerF) Dial(remote string) (raw io.ReadWriteCloser, err error) {
 	return
 }
 
-//BalanceDialer is an implementation of Dailer by balance multi Dialer
-type BalanceDialer struct {
-	dialers []Dialer
-	last    int
-}
-
-//NewBalanceDialer return new BalanceDialer by multi dialer
-func NewBalanceDialer() (dialer *BalanceDialer) {
-	dialer = &BalanceDialer{}
-	return
-}
-
-//SetDailer will set to new dialers
-func (b *BalanceDialer) SetDailer(dialers ...Dialer) {
-	b.last = 0
-	b.dialers = dialers
-}
-
-//Dial dial to remote by multi
-func (b *BalanceDialer) Dial(remote string) (raw io.ReadWriteCloser, err error) {
-	if len(b.dialers) < 1 {
-		err = fmt.Errorf("not dialer")
-		return
-	}
-	dailer := b.dialers[b.last]
-	b.last = b.last + 1%len(b.dialers)
-	raw, err = dailer.Dial(remote)
-	return
-}
-
 //NetDialer is an implementation of Dialer by net
 type NetDialer string
 
