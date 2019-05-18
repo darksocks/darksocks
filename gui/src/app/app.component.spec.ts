@@ -9,6 +9,7 @@ import { BrowserModule } from '@angular/platform-browser';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { AngularDraggableModule } from 'angular2-draggable';
 import { MockIpcRenderer } from './darksocks.testdata';
+import { RulesComponent } from './rules/rules.component';
 declare var global: any;
 describe('AppComponent', () => {
   let component: AppComponent;
@@ -21,6 +22,7 @@ describe('AppComponent', () => {
         NavComponent,
         ConfComponent,
         LogComponent,
+        RulesComponent,
       ],
       imports: [
         FormsModule,

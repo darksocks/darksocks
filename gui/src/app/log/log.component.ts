@@ -11,6 +11,7 @@ export class LogComponent implements OnInit {
   }
   @ViewChild("log") log: ElementRef
   srv: DarksocksService;
+  max: number = 128 * 1024
   constructor(srv: DarksocksService) {
     this.srv = srv;
   }
@@ -18,8 +19,8 @@ export class LogComponent implements OnInit {
     this.srv.handler.subscribe(n => {
       if (n.cmd == "log") {
         var m = this.log.nativeElement.innerText;
-        if (m.length + n.m.length > 128 * 1024) {
-          m = m.substring(m.length + n.m.length - 128 * 1024);
+        if (m.length + n.m.length > this.max) {
+          m = m.substring(m.length + n.m.length - this.max);
         }
         this.log.nativeElement.innerText = m + n.m;
         var logview = document.querySelector(".logview");

@@ -49,7 +49,7 @@
       <th>Password</th>
       <th>Action</th>
     </tr>
-    <tr *ngFor="let s of conf.servers;let i=index">
+    <tr class="app-server-list" *ngFor="let s of conf.servers;let i=index">
       <td class="app-server-enable">
         <input type="checkbox" [checked]="s.enable" (change)="enable($event,i,s)">
       </td>
@@ -60,10 +60,10 @@
       <td>{{s.username}}</td>
       <td>***</td>
       <td>
-        <a href="#" (click)="remove(i,s)">Remove</a>
+        <a class="app-server-remove" href="#" (click)="remove(i,s)">Remove</a>
       </td>
     </tr>
-    <tr class="server-editing">
+    <tr class="app-server-editing">
       <td class="app-server-enable">
         <input type="checkbox" [(ngModel)]="server.enable">
       </td>

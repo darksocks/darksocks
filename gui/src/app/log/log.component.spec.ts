@@ -10,14 +10,14 @@ describe('LogComponent', () => {
   beforeEach(async(() => {
     TestBed.configureTestingModule({
       declarations: [LogComponent]
-    })
-      .compileComponents();
+    }).compileComponents();
   }));
 
   beforeEach(() => {
     fixture = TestBed.createComponent(LogComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+    component.max = 5
   });
 
   it('should create', () => {
@@ -25,8 +25,8 @@ describe('LogComponent', () => {
   });
   it('should start', async () => {
     global.ipcRenderer.startDarkSocks()
-    await sleep(150)
+    await sleep(500)
     global.ipcRenderer.stopDarkSocks()
-    await sleep(150)
+    await sleep(100)
   });
 });

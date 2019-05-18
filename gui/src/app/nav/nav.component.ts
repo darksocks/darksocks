@@ -33,7 +33,7 @@ export class NavComponent implements OnInit {
   doTaskAction() {
     if (this.status == "Running") {
       this.srv.stopDarksocks()
-    } else {
+    } else if (this.status == "Stopped") {
       this.srv.startDarksocks()
       this.status = "Pending"
     }
