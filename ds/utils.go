@@ -191,13 +191,17 @@ func (s *StringConn) String() string {
 	if len(s.Name) > 0 {
 		return s.Name
 	}
-	if wsc, ok := s.ReadWriteCloser.(*websocket.Conn); ok {
+	return remoteAddr(s.ReadWriteCloser)
+}
+
+func remoteAddr(v interface{}) string {
+	if wsc, ok := v.(*websocket.Conn); ok {
 		return fmt.Sprintf("%v", wsc.RemoteAddr())
 	}
-	if netc, ok := s.ReadWriteCloser.(net.Conn); ok {
+	if netc, ok := v.(net.Conn); ok {
 		return fmt.Sprintf("%v", netc.RemoteAddr())
 	}
-	return fmt.Sprintf("%v", s.ReadWriteCloser)
+	return fmt.Sprintf("%v", v)
 }
 
 //TCPKeepAliveListener is normal tcp listner for set tcp connection keep alive

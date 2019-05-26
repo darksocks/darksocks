@@ -25,7 +25,7 @@ func TestConn(t *testing.T) {
 		binary.BigEndian.PutUint32(buf, uint32(4+len(data1)))
 		copy(buf[4:], data1)
 		raw := bytes.NewBuffer(buf)
-		proc := NewConn(raw, 256*1024)
+		proc := NewBaseConn(raw, 256*1024)
 		cmd, err := proc.ReadCmd()
 		if err != nil || !bytes.Equal(cmd, data1) {
 			t.Error(err)
@@ -43,7 +43,7 @@ func TestConn(t *testing.T) {
 		wait := sync.WaitGroup{}
 		wait.Add(1)
 		go func() {
-			proc := NewConn(r, 256*1024)
+			proc := NewBaseConn(r, 256*1024)
 			cmd, err := proc.ReadCmd()
 			if err != nil || !bytes.Equal(cmd, data1) {
 				t.Error(err)
@@ -78,7 +78,7 @@ func TestConn(t *testing.T) {
 		copy(buf[8+len(data1):], data2)
 		raw := bytes.NewBuffer(buf)
 		//
-		proc := NewConn(raw, 256*1024)
+		proc := NewBaseConn(raw, 256*1024)
 		cmd, err := proc.ReadCmd()
 		if err != nil || !bytes.Equal(cmd, data1) {
 			t.Error(err)
@@ -103,7 +103,7 @@ func TestConn(t *testing.T) {
 		wait := sync.WaitGroup{}
 		wait.Add(1)
 		go func() {
-			proc := NewConn(r, 256*1024)
+			proc := NewBaseConn(r, 256*1024)
 			cmd, err := proc.ReadCmd()
 			if err != nil || !bytes.Equal(cmd, data1) {
 				t.Error(err)
@@ -137,7 +137,7 @@ func TestConn(t *testing.T) {
 	{ //test too large
 		buf := make([]byte, 1024)
 		binary.BigEndian.PutUint32(buf, 1000000)
-		proc := NewConn(bytes.NewBuffer(buf), 1024)
+		proc := NewBaseConn(bytes.NewBuffer(buf), 1024)
 		_, err := proc.ReadCmd()
 		if err == nil {
 			t.Error(err)
@@ -146,9 +146,9 @@ func TestConn(t *testing.T) {
 	}
 	{ //test string
 		wsRaw := &websocket.Conn{}
-		fmt.Printf("%v\n", NewConn(wsRaw, 1024))
+		fmt.Printf("%v\n", NewBaseConn(wsRaw, 1024))
 		netRaw := &net.TCPConn{}
-		fmt.Printf("%v\n", NewConn(netRaw, 1024))
+		fmt.Printf("%v\n", NewBaseConn(netRaw, 1024))
 	}
 }
 
@@ -173,7 +173,7 @@ func TestDarkSocket(t *testing.T) {
 		}))
 		wait.Add(1)
 		go func() {
-			server.ProcConn(NewConn(serverChannel, server.BufferSize))
+			server.ProcConn(NewBaseConn(serverChannel, server.BufferSize))
 			wait.Done()
 		}()
 		client := NewClient(256*1024, DialerF(func(remote string) (raw io.ReadWriteCloser, err error) {
@@ -205,6 +205,8 @@ func TestDarkSocket(t *testing.T) {
 		//
 		serverRemote.Close()
 		time.Sleep(time.Millisecond)
+		client.Close()
+		time.Sleep(time.Millisecond)
 		serverChannel.Close()
 	}
 	{ //http process
@@ -225,7 +227,7 @@ func TestDarkSocket(t *testing.T) {
 		}))
 		wait.Add(1)
 		go func() {
-			server.ProcConn(NewConn(serverChannel, server.BufferSize))
+			server.ProcConn(NewBaseConn(serverChannel, server.BufferSize))
 			wait.Done()
 		}()
 		client := NewClient(256*1024, DialerF(func(remote string) (raw io.ReadWriteCloser, err error) {
@@ -264,7 +266,7 @@ func TestDarkSocket(t *testing.T) {
 		}))
 		wait.Add(1)
 		go func() {
-			server.ProcConn(NewConn(serverChannel, server.BufferSize))
+			server.ProcConn(NewBaseConn(serverChannel, server.BufferSize))
 			wait.Done()
 		}()
 		client := NewClient(256*1024, DialerF(func(remote string) (raw io.ReadWriteCloser, err error) {
@@ -322,7 +324,7 @@ func TestDarkSocket(t *testing.T) {
 		binary.BigEndian.PutUint32(buf1, 8)
 		copy(buf1[4:], []byte("abcd"))
 		procConn1.ReadData <- buf1
-		err := server.ProcConn(NewConn(procConn1, server.BufferSize))
+		err := server.ProcConn(NewBaseConn(procConn1, server.BufferSize))
 		if err == nil {
 			t.Error(err)
 			return
@@ -335,7 +337,7 @@ func TestDarkSocket(t *testing.T) {
 		copy(buf2[5:], []byte("abc"))
 		procConn2.ReadData <- buf2
 		procConn2.ReadErrC = 2
-		err = server.ProcConn(NewConn(procConn2, server.BufferSize))
+		err = server.ProcConn(NewBaseConn(procConn2, server.BufferSize))
 		if err == nil {
 			t.Error(err)
 			return
@@ -491,7 +493,7 @@ func TestCopyRemote2ChannelErr(t *testing.T) {
 		target = NewErrMockConn(1, 1)
 		conn = NewErrMockConn(1, 2)
 		target.ReadErrC = 1
-		err = copyRemote2Channel(1024, NewConn(conn, 1024), target)
+		err = copyRemote2Channel(1024, NewBaseConn(conn, 1024), target)
 		fmt.Println("xxxx")
 		<-conn.WriteData
 		if err == nil {
@@ -506,7 +508,7 @@ func TestCopyRemote2ChannelErr(t *testing.T) {
 		conn = NewErrMockConn(1, 2)
 		conn.WriteErrC = 1
 		target.ReadData <- []byte("test")
-		err = copyRemote2Channel(1024, NewConn(conn, 1024), target)
+		err = copyRemote2Channel(1024, NewBaseConn(conn, 1024), target)
 		if err == nil {
 			t.Error(err)
 			return
@@ -523,7 +525,7 @@ func TestCopyChannel2RemoteErr(t *testing.T) {
 		target = NewErrMockConn(1, 1)
 		conn = NewErrMockConn(1, 1)
 		conn.ReadErrC = 1
-		err = copyChannel2Remote(NewConn(conn, 1024), target)
+		err = copyChannel2Remote(NewBaseConn(conn, 1024), target)
 		if err == nil {
 			t.Error(err)
 			return
@@ -538,7 +540,7 @@ func TestCopyChannel2RemoteErr(t *testing.T) {
 		binary.BigEndian.PutUint32(buf, 8)
 		copy(buf[4:], []byte("abcd"))
 		conn.ReadData <- buf
-		err = copyChannel2Remote(NewConn(conn, 1024), target)
+		err = copyChannel2Remote(NewBaseConn(conn, 1024), target)
 		if err == nil {
 			t.Error(err)
 			return
