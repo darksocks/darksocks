@@ -236,7 +236,7 @@ func TestDS(t *testing.T) {
 		networksetupPath = "echo"
 		//
 		clientConfOld := clientConf
-		clientConf = "/xxx"
+		clientConf = "/xxx/ssss/"
 		res, err = httpGet("%v/changeProxyMode?mode=manual", managerServer)
 		if err != nil || res == "ok" {
 			t.Errorf("err:%v,%v", err, res)

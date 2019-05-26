@@ -51,7 +51,7 @@ func startServer(c string) (err error) {
 	mux.Handle("/ds", websocket.Handler(func(ws *websocket.Conn) {
 		ok, err := auth.BasicAuth(ws.Request())
 		if ok && err == nil {
-			server.ProcConn(ds.NewConn(ws, server.BufferSize))
+			server.ProcConn(ds.NewBaseConn(ws, server.BufferSize))
 		} else {
 			ds.WarnLog("Server receive auth fail connection from %v", ws.RemoteAddr())
 		}
