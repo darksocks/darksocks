@@ -136,3 +136,11 @@ func TestTCPKeepAliveListener(t *testing.T) {
 	conn.Close()
 	<-wait
 }
+
+func TestReadJSON(t *testing.T) {
+	err := ReadJSON("ssdkfdsfk", nil)
+	if err == nil {
+		t.Error(err)
+		return
+	}
+}
