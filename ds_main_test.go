@@ -11,7 +11,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -29,6 +31,14 @@ func init() {
 	gfwListPath = "./gfwlist.txt"
 	userRulesPath = "./work/user_rules.txt"
 	workDir = "./work/"
+	switch runtime.GOOS {
+	case "darwin":
+		exec.Command("cp", "-f", "privoxy-Darwin", "privoxy").CombinedOutput()
+	case "linux":
+		exec.Command("cp", "-f", "privoxy-Linux", "privoxy").CombinedOutput()
+	default:
+		exec.Command("xcopy", "privoxy-Win.exe", "privoxy.exe").CombinedOutput()
+	}
 }
 
 var echoListner net.Listener
